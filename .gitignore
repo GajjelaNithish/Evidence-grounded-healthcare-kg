@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.venv311/
+env/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Data
+data/uploads/*
+!data/uploads/.gitkeep
+data/faiss/*
+!data/faiss/.gitkeep
+
+# Environment
+.env
+
+# OS & Tools
+.DS_Store
+Thumbs.db
+tools/
+*.log

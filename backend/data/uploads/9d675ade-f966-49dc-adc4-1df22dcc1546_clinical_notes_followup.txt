@@ -1,0 +1,7 @@
+CLINICAL CONSULTATION REPORT
+Patient ID: 1
+Date: 2026-09-13
+Chief Complaint: Follow-up consultation for chronic hypertension and blood sugar management.
+Findings: Blood pressure 138/86 mmHg. Fasting blood sugar 118 mg/dL.
+Plan: Continue current prescription of Metformin 500mg and lifestyle modifications.
+Follow-up scheduled in 30 days.
