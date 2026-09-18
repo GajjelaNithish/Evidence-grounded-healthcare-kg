@@ -19,6 +19,7 @@ data/uploads/*
 !data/uploads/.gitkeep
 data/faiss/*
 !data/faiss/.gitkeep
+backend/data/
 
 # Environment
 .env
