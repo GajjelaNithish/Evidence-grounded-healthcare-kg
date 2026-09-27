@@ -2,8 +2,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 class QueryRequest(BaseModel):
-    query: str = Field(..., example="What treatment did the patient receive for diabetes and when was it administered?")
-    patient_id: str = Field(..., example="1")
+    query: str = Field(..., json_schema_extra={"example": "What treatment did the patient receive for diabetes and when was it administered?"})
+    patient_id: str = Field(..., json_schema_extra={"example": "1"})
 
 class DocumentEvidence(BaseModel):
     chunk_text: str

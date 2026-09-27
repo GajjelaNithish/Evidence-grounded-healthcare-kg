@@ -14,14 +14,18 @@ class LLMClient:
         self._gemini_client = None
 
         if self.backend == "gemini":
-            try:
-                from google import genai
-                if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "your_gemini_api_key_here":
-                    self._gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
-                else:
-                    logger.warning("GEMINI_API_KEY is not set. Gemini calls will fail until configured.")
-            except ImportError:
-                logger.error("google-genai package not installed.")
+            self._init_gemini_client()
+
+    def _init_gemini_client(self):
+        try:
+            from google import genai
+            if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "your_gemini_api_key_here":
+                self._gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                logger.info(f"Initialized Google GenAI client with model: {self.gemini_model}")
+            else:
+                logger.warning("GEMINI_API_KEY is not configured or placeholder. Gemini synthesis will prompt for configuration.")
+        except ImportError:
+            logger.error("google-genai package is not installed. Please install google-genai>=2.0.0.")
 
     async def generate_response(self, prompt: str, system_instruction: Optional[str] = None) -> str:
         """Generates grounded clinical response using Gemini or Ollama."""
@@ -34,14 +38,13 @@ class LLMClient:
 
     async def _generate_gemini(self, prompt: str, system_instruction: Optional[str] = None) -> str:
         if not self._gemini_client:
-            from google import genai
-            if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "your_gemini_api_key_here":
-                self._gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            else:
-                return (
-                    "ClinicalKG LLM Notice: GEMINI_API_KEY is not configured in .env. "
-                    "Please provide a valid Gemini API key to enable clinical synthesis."
-                )
+            self._init_gemini_client()
+
+        if not self._gemini_client:
+            return (
+                "ClinicalKG LLM Notice: GEMINI_API_KEY is not configured in backend environment. "
+                "Please configure a valid Gemini API key to enable clinical synthesis."
+            )
 
         from google.genai import types
 
@@ -56,15 +59,15 @@ class LLMClient:
         )
 
         try:
-            # Synchronous genai call wrapped in async executor or direct call
-            response = self._gemini_client.models.generate_content(
+            # Async call via official google-genai aio interface
+            response = await self._gemini_client.aio.models.generate_content(
                 model=self.gemini_model,
                 contents=prompt,
                 config=config
             )
             return response.text or ""
         except Exception as e:
-            logger.error(f"Gemini generation error: {e}")
+            logger.error(f"Google GenAI Gemini generation error: {e}")
             raise RuntimeError(f"Gemini API request failed: {e}")
 
     async def _generate_ollama(self, prompt: str, system_instruction: Optional[str] = None) -> str:

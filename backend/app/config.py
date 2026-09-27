@@ -1,7 +1,10 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from typing import List
+from pathlib import Path
 import os
+
+ENV_FILE = str(Path(__file__).resolve().parent.parent.parent / ".env")
 
 class Settings(BaseSettings):
     # PostgreSQL
@@ -26,7 +29,7 @@ class Settings(BaseSettings):
 
     # LLM Settings
     LLM_BACKEND: str = Field(default="gemini", description="'gemini' or 'ollama'")
-    GEMINI_MODEL: str = Field(default="gemini-2.5-flash", description="Configurable Gemini model name")
+    GEMINI_MODEL: str = Field(default="gemini-3.1-flash-lite-preview", description="Configurable Gemini model name")
     GEMINI_API_KEY: str = Field(default="")
     OLLAMA_URL: str = Field(default="http://localhost:11434")
     OLLAMA_MODEL: str = Field(default="biomistral:latest")
@@ -52,7 +55,7 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore"
     )

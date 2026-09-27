@@ -1,15 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Clock, HeartPulse, AlertCircle, Calendar } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { useToast } from '../../context/ToastContext';
 
 export default function PatientTimelinePage() {
   const { user } = useAuth();
-  const [events, setEvents] = useState([]);
+  const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('ALL');
-  const toast = useToast();
 
   const patientId = user?.clinical_patient_id;
 
@@ -18,104 +14,92 @@ export default function PatientTimelinePage() {
       setLoading(false);
       return;
     }
-    fetchTimeline();
-  }, [patientId]);
 
-  const fetchTimeline = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get(`/kg/timeline/${patientId}`);
-      setEvents(res.data || []);
-    } catch {
-      toast.error('Failed to load your medical timeline.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    api
+      .get(`/kg/timeline/${patientId}`)
+      .then((res) => setTimeline(res.data || []))
+      .catch((err) => console.error('Failed to load patient timeline', err))
+      .finally(() => setLoading(false));
+  }, [patientId]);
 
   if (!patientId) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: 'var(--space-2xl)' }}>
-        <AlertCircle size={36} style={{ color: 'var(--accent-warning)', marginBottom: 'var(--space-sm)' }} />
-        <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 700 }}>No Medical Record Associated</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>
-          Your account is not linked to a clinical patient ID.
+      <div className="empty-state-container">
+        <h2 className="empty-state-heading">No medical record linked</h2>
+        <p className="empty-state-text">
+          Your account is not linked to a clinical patient record.
         </p>
       </div>
     );
   }
 
-  const filtered = events.filter((e) => {
-    if (filter === 'ALL') return true;
-    return e.event_type === filter;
-  });
+  if (loading) {
+    return (
+      <div className="page-root">
+        <div className="skeleton skeleton-heading" />
+        <div className="skeleton skeleton-paragraph" />
+      </div>
+    );
+  }
 
-  const getEventBadge = (type) => {
-    switch (type) {
-      case 'Condition Diagnosis': return 'badge-amber';
-      case 'Treatment Course': return 'badge-blue';
-      case 'Hospital Admission': return 'badge-purple';
-      default: return 'badge-blue';
-    }
+  // Group events by year
+  const eventsByYear = timeline.reduce((acc, evt) => {
+    const year = evt.date ? evt.date.split('-')[0] : 'Historical';
+    if (!acc[year]) acc[year] = [];
+    acc[year].push(evt);
+    return acc;
+  }, {});
+
+  const getDotClass = (item) => {
+    const text = `${item.status || ''} ${item.details || ''} ${item.title || ''}`.toLowerCase();
+    if (text.includes('recovered')) return 'dot-success';
+    if (text.includes('stable')) return 'dot-warning';
+    return 'dot-muted';
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
-        <div>
-          <h1>My Medical Timeline</h1>
-          <p>Chronological record of diagnoses, treatments, and admissions for Patient #{patientId}</p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
-          {['ALL', 'Condition Diagnosis', 'Treatment Course', 'Hospital Admission'].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
-            >
-              {f === 'ALL' ? 'All Events' : f}
-            </button>
-          ))}
-        </div>
+    <div className="page-root">
+      <div className="page-header-row">
+        <h1 className="page-title">Health timeline</h1>
       </div>
 
-      {loading ? (
-        <div className="loading-container" style={{ minHeight: '300px' }}>
-          <div className="spinner spinner-lg" />
-          <span>Retrieving timeline history...</span>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-2xl)' }}>
-          <Clock size={32} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-sm)' }} />
-          <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600 }}>No Timeline Events Recorded</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>
-            There are currently no events matching this filter in your clinical record.
-          </p>
+      <div className="section-divider" />
+
+      {timeline.length === 0 ? (
+        <div className="empty-state-container">
+          <p className="empty-state-text">No health events recorded in your timeline.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          {filtered.map((item, idx) => (
-            <div key={idx} className="card" style={{ borderLeft: '4px solid var(--accent-primary)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', marginBottom: 'var(--space-xs)' }}>
-                    <span className={`badge ${getEventBadge(item.event_type)}`}>
-                      {item.event_type}
-                    </span>
-                    <span className="badge badge-green">{item.status || 'Recorded'}</span>
-                  </div>
-                  <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {item.title}
-                  </h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-sm)', marginTop: 'var(--space-xs)' }}>
-                    {item.details}
-                  </p>
-                </div>
+        <div className="timeline-view-container">
+          {Object.entries(eventsByYear).map(([year, events]) => (
+            <div key={year} className="timeline-year-group">
+              <div className="timeline-year-heading">{year}</div>
 
-                <div style={{ textAlign: 'right', fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                  <div><strong>Date:</strong> {item.date || 'N/A'}</div>
-                  {item.end_date && <div><strong>End:</strong> {item.end_date}</div>}
+              <div className="timeline-spine-wrapper">
+                <div className="timeline-vertical-spine" />
+
+                <div className="timeline-events-list">
+                  {events.map((evt, idx) => (
+                    <div key={idx} className="timeline-event-item">
+                      <div className={`timeline-spine-dot ${getDotClass(evt)}`} />
+
+                      <div className="timeline-event-body">
+                        <div className="timeline-event-date">{evt.date || 'Undated'}</div>
+
+                        <div className="timeline-event-title">{evt.title || evt.event_type}</div>
+
+                        <div className="timeline-event-details">
+                          {evt.details || evt.event_type}
+                        </div>
+
+                        {evt.end_date && (
+                          <div className="timeline-event-meta">
+                            Completed on {evt.end_date} · Status: {evt.status || 'Recorded'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

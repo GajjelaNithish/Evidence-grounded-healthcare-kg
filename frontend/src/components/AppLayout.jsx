@@ -1,144 +1,74 @@
+import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  Activity, Users, UserCheck, FileText, ClipboardList,
-  BarChart3, Search, Upload, Clock, HeartPulse,
-  LogOut, Shield, Stethoscope, User
-} from 'lucide-react';
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = (e) => {
+    e.preventDefault();
     logout();
     navigate('/login');
   };
 
-  const initials = (user?.full_name || user?.username || 'U')
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
-  const roleIcon = {
-    admin: <Shield size={14} />,
-    doctor: <Stethoscope size={14} />,
-    patient: <User size={14} />,
-  };
-
   return (
-    <div className="app-layout">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <div className="brand-icon">
-              <Activity size={20} />
-            </div>
-            <div>
-              <div className="brand-text">ClinicalKG</div>
-              <div className="brand-sub">Knowledge Graph Portal</div>
-            </div>
-          </div>
-        </div>
+    <div className="layout-root">
+      <aside className="layout-sidebar" style={{ position: 'fixed', top: 0, left: 0, height: '100vh', overflowY: 'auto', zIndex: 100, width: '220px' }}>
+        <div className="sidebar-brand-title">ClinicalKG</div>
 
-        <nav className="sidebar-nav">
-          {user?.role === 'admin' && <AdminNav />}
-          {user?.role === 'doctor' && <DoctorNav />}
-          {user?.role === 'patient' && <PatientNav />}
+        <nav className="sidebar-nav-list">
+          {user?.role === 'admin' && (
+            <>
+              <NavLink to="/admin" end className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+                Overview
+              </NavLink>
+              <NavLink to="/admin/users" className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+                Users
+              </NavLink>
+              <NavLink to="/admin/assignments" className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+                Assignments
+              </NavLink>
+              <NavLink to="/admin/audit" className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+                Audit Log
+              </NavLink>
+            </>
+          )}
+
+          {user?.role === 'doctor' && (
+            <NavLink to="/doctor/patients" className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+              Patients
+            </NavLink>
+          )}
+
+          {user?.role === 'patient' && (
+            <>
+              <NavLink to="/patient" end className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+                My Record
+              </NavLink>
+              <NavLink to="/patient/timeline" className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+                Timeline
+              </NavLink>
+              <NavLink to="/patient/query" className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}>
+                Ask a Question
+              </NavLink>
+            </>
+          )}
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <div className="user-avatar">{initials}</div>
-            <div className="user-info">
-              <div className="user-name">{user?.full_name || user?.username}</div>
-              <div className="user-role">
-                {roleIcon[user?.role]} {user?.role}
-              </div>
-            </div>
-            <button
-              className="btn btn-icon btn-secondary"
-              onClick={handleLogout}
-              title="Sign Out"
-              id="logout-btn"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
+        <div className="sidebar-bottom-panel">
+          <div className="sidebar-user-label">{user?.full_name || user?.username || 'User'}</div>
+          <button onClick={handleLogout} className="sidebar-logout-btn" id="logout-btn">
+            Logout
+          </button>
         </div>
       </aside>
 
-      <main className="main-content">
-        <Outlet />
+      <main className="layout-main-area" style={{ marginLeft: '220px', height: '100vh', overflowY: 'auto' }}>
+        <div className="layout-content-wrapper">
+          <Outlet />
+        </div>
       </main>
     </div>
-  );
-}
-
-function AdminNav() {
-  return (
-    <>
-      <div className="nav-section">
-        <div className="nav-section-title">Overview</div>
-        <NavLink to="/admin" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <BarChart3 size={18} /> Dashboard
-        </NavLink>
-      </div>
-      <div className="nav-section">
-        <div className="nav-section-title">Management</div>
-        <NavLink to="/admin/users" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <Users size={18} /> Users
-        </NavLink>
-        <NavLink to="/admin/assignments" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <UserCheck size={18} /> Assignments
-        </NavLink>
-        <NavLink to="/admin/audit" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <ClipboardList size={18} /> Audit Logs
-        </NavLink>
-      </div>
-    </>
-  );
-}
-
-function DoctorNav() {
-  return (
-    <>
-      <div className="nav-section">
-        <div className="nav-section-title">Dashboard</div>
-        <NavLink to="/doctor" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <HeartPulse size={18} /> My Patients
-        </NavLink>
-      </div>
-      <div className="nav-section">
-        <div className="nav-section-title">Patient Tools</div>
-        <NavLink to="/doctor/query" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <Search size={18} /> Clinical Q&A
-        </NavLink>
-        <NavLink to="/doctor/upload" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <Upload size={18} /> Upload Document
-        </NavLink>
-      </div>
-    </>
-  );
-}
-
-function PatientNav() {
-  return (
-    <>
-      <div className="nav-section">
-        <div className="nav-section-title">My Health</div>
-        <NavLink to="/patient" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <HeartPulse size={18} /> Overview
-        </NavLink>
-        <NavLink to="/patient/timeline" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <Clock size={18} /> Timeline
-        </NavLink>
-        <NavLink to="/patient/query" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <Search size={18} /> Ask a Question
-        </NavLink>
-      </div>
-    </>
   );
 }

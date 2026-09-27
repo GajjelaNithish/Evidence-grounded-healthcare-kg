@@ -1,64 +1,96 @@
-import { useEffect, useState } from 'react';
-import { UserPlus, Trash2, Search } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import api from '../../api';
-import { useToast } from '../../context/ToastContext';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [search, setSearch] = useState('');
-  const toast = useToast();
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       const res = await api.get('/admin/users');
-      setUsers(res.data);
-    } catch {
-      toast.error('Failed to load users');
+      setUsers(res.data || []);
+    } catch (err) {
+      console.error('Failed to load users', err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
-  const filtered = users.filter((u) =>
-    u.username.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.role.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = users.filter((u) => {
+    if (roleFilter !== 'ALL' && u.role !== roleFilter) return false;
+    if (statusFilter === 'active' && !u.is_active) return false;
+    if (statusFilter === 'inactive' && u.is_active) return false;
+    return true;
+  });
 
   return (
-    <div>
-      <div className="page-header">
-        <h1>User Management</h1>
-        <p>Create and manage system users</p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)', flexWrap: 'wrap' }}>
-        <div className="search-bar" style={{ flex: 1, minWidth: 200 }}>
-          <Search size={16} />
-          <input
-            className="input"
-            placeholder="Search users..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            id="user-search"
-          />
-        </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)} id="create-user-btn">
-          <UserPlus size={16} /> New User
+    <div className="page-root">
+      {/* Header Row */}
+      <div className="page-header-row">
+        <h1 className="page-title">Users</h1>
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="btn-secondary-action"
+        >
+          Create user
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="admin-filters-bar">
+        <div className="filter-select-group">
+          <label className="filter-select-label">Role:</label>
+          <select
+            className="filter-select-dropdown"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="ALL">All</option>
+            <option value="doctor">Doctor</option>
+            <option value="patient">Patient</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        <div className="filter-select-group">
+          <label className="filter-select-label">Status:</label>
+          <select
+            className="filter-select-dropdown"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="ALL">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="section-divider" />
+
+      {/* Users Table */}
       {loading ? (
-        <div className="loading-container">
-          <div className="spinner spinner-lg" />
+        <div className="skeleton-table">
+          <div className="skeleton skeleton-row-left" />
+          <div className="skeleton skeleton-row-left" />
+          <div className="skeleton skeleton-row-left" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state-container">
+          <p className="empty-state-text">No users found matching filter criteria.</p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="table">
+        <div className="compact-table-container">
+          <table className="compact-table">
             <thead>
               <tr>
                 <th>Username</th>
@@ -66,121 +98,145 @@ export default function UsersPage() {
                 <th>Role</th>
                 <th>Patient ID</th>
                 <th>Status</th>
-                <th>Created</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    No users found
+              {filtered.map((u) => (
+                <tr key={u.id}>
+                  <td className="font-semibold">{u.username}</td>
+                  <td className="text-secondary">{u.email}</td>
+                  <td>
+                    <span className={`role-text-label role-${u.role}`}>{u.role}</span>
+                  </td>
+                  <td className="font-mono text-muted">{u.clinical_patient_id || '—'}</td>
+                  <td>
+                    <span className={u.is_active ? 'status-active-text' : 'status-inactive-text'}>
+                      {u.is_active ? 'Active' : 'Inactive'}
+                    </span>
                   </td>
                 </tr>
-              ) : (
-                filtered.map((u) => (
-                  <tr key={u.id}>
-                    <td style={{ fontWeight: 600 }}>{u.username}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
-                    <td>
-                      <span className={`badge ${roleBadge(u.role)}`}>{u.role}</span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: 'var(--font-xs)' }}>
-                      {u.clinical_patient_id || '—'}
-                    </td>
-                    <td>
-                      <span className={`badge ${u.is_active ? 'badge-green' : 'badge-red'}`}>
-                        {u.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: 'var(--font-xs)' }}>
-                      {new Date(u.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
+      {/* Create User Modal */}
       {showCreate && (
         <CreateUserModal
           onClose={() => setShowCreate(false)}
-          onCreated={() => { setShowCreate(false); fetchUsers(); }}
+          onCreated={() => {
+            setShowCreate(false);
+            fetchUsers();
+          }}
         />
       )}
     </div>
   );
 }
 
-function roleBadge(role) {
-  if (role === 'admin') return 'badge-red';
-  if (role === 'doctor') return 'badge-blue';
-  return 'badge-purple';
-}
-
 function CreateUserModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'doctor', clinical_patient_id: '' });
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    role: 'doctor',
+    clinical_patient_id: '',
+  });
   const [submitting, setSubmitting] = useState(false);
-  const toast = useToast();
+  const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
+
     try {
       await api.post('/admin/users', {
         ...form,
         clinical_patient_id: form.clinical_patient_id || null,
       });
-      toast.success('User created successfully');
       onCreated();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to create user');
+      setError(err.response?.data?.detail || 'Failed to create user');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Create New User</h2>
+    <div className="modal-backdrop">
+      <div className="modal-card">
+        <h3 className="modal-title">Create user</h3>
+
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="label">Username</label>
-            <input className="input" required value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })} id="new-user-username" />
+          <div className="form-field-block">
+            <label className="login-field-label">Username</label>
+            <input
+              className="login-field-input"
+              type="text"
+              required
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+            />
           </div>
-          <div className="form-group">
-            <label className="label">Email</label>
-            <input className="input" type="email" required value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })} id="new-user-email" />
+
+          <div className="form-field-block">
+            <label className="login-field-label">Email</label>
+            <input
+              className="login-field-input"
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
           </div>
-          <div className="form-group">
-            <label className="label">Password</label>
-            <input className="input" type="password" required value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })} id="new-user-password" />
+
+          <div className="form-field-block">
+            <label className="login-field-label">Password</label>
+            <input
+              className="login-field-input"
+              type="password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
           </div>
-          <div className="form-group">
-            <label className="label">Role</label>
-            <select className="select" value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })} id="new-user-role">
+
+          <div className="form-field-block">
+            <label className="login-field-label">Role</label>
+            <select
+              className="filter-select-dropdown full-width"
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+            >
               <option value="doctor">Doctor</option>
               <option value="patient">Patient</option>
               <option value="admin">Admin</option>
             </select>
           </div>
+
           {form.role === 'patient' && (
-            <div className="form-group">
-              <label className="label">Clinical Patient ID</label>
-              <input className="input" placeholder="e.g. P001" value={form.clinical_patient_id}
-                onChange={(e) => setForm({ ...form, clinical_patient_id: e.target.value })} id="new-user-patient-id" />
+            <div className="form-field-block">
+              <label className="login-field-label">Clinical Patient ID</label>
+              <input
+                className="login-field-input"
+                type="text"
+                placeholder="e.g. 42"
+                value={form.clinical_patient_id}
+                onChange={(e) => setForm({ ...form, clinical_patient_id: e.target.value })}
+              />
             </div>
           )}
-          <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={submitting} id="submit-create-user">
-              {submitting ? <div className="spinner" /> : 'Create User'}
+
+          {error && <div className="login-inline-error modal-error">{error}</div>}
+
+          <div className="modal-actions-row">
+            <button type="button" className="btn-secondary-action" onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary-action" disabled={submitting}>
+              {submitting ? 'Creating…' : 'Create user'}
             </button>
           </div>
         </form>

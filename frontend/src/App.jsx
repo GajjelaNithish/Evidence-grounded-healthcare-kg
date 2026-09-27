@@ -13,10 +13,8 @@ import AssignmentsPage from './pages/admin/AssignmentsPage';
 import AuditPage from './pages/admin/AuditPage';
 
 // Doctor Pages
-import DoctorDashboard from './pages/doctor/DoctorDashboard';
-import PatientDetailView from './pages/doctor/PatientDetailView';
-import DoctorQueryPage from './pages/doctor/DoctorQueryPage';
-import DoctorUploadPage from './pages/doctor/DoctorUploadPage';
+import PatientList from './pages/doctor/PatientList';
+import PatientWorkspace from './pages/doctor/PatientWorkspace';
 
 // Patient Pages
 import PatientDashboard from './pages/patient/PatientDashboard';
@@ -40,7 +38,7 @@ function RootRedirect() {
   }
 
   if (user?.role === 'admin') return <Navigate to="/admin" replace />;
-  if (user?.role === 'doctor') return <Navigate to="/doctor" replace />;
+  if (user?.role === 'doctor') return <Navigate to="/doctor/patients" replace />;
   if (user?.role === 'patient') return <Navigate to="/patient" replace />;
 
   return <Navigate to="/login" replace />;
@@ -71,10 +69,9 @@ export default function App() {
             {/* Doctor Portal */}
             <Route element={<ProtectedRoute allowedRoles={['doctor']} />}>
               <Route element={<AppLayout />}>
-                <Route path="/doctor" element={<DoctorDashboard />} />
-                <Route path="/doctor/patients/:patientId" element={<PatientDetailView />} />
-                <Route path="/doctor/query" element={<DoctorQueryPage />} />
-                <Route path="/doctor/upload" element={<DoctorUploadPage />} />
+                <Route path="/doctor" element={<Navigate to="/doctor/patients" replace />} />
+                <Route path="/doctor/patients" element={<PatientList />} />
+                <Route path="/doctor/patients/:patientId" element={<PatientWorkspace />} />
               </Route>
             </Route>
 
