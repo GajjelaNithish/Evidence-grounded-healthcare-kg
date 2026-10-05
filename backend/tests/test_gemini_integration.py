@@ -14,7 +14,7 @@ from app.query.schemas import GraphEvidence, DocumentEvidence
 async def test_llm_client_initialization():
     client = LLMClient()
     assert client.backend in ["gemini", "ollama"]
-    assert client.gemini_model == "gemini-2.5-flash"
+    assert client.gemini_model == settings.GEMINI_MODEL
 
 @pytest.mark.asyncio
 async def test_gemini_missing_key_graceful_handling():

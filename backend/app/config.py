@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = Field(default="biomistral:latest")
 
     # Storage Paths
-    UPLOAD_DIR: str = Field(default="data/uploads")
-    FAISS_DIR: str = Field(default="data/faiss")
+    UPLOAD_DIR: str = str(Path(__file__).resolve().parent.parent.parent / "data" / "uploads")
+    FAISS_DIR: str = str(Path(__file__).resolve().parent.parent.parent / "data" / "faiss")
     MAX_UPLOAD_SIZE_MB: int = Field(default=10)
 
     # Retrieval & Evidence Fusion

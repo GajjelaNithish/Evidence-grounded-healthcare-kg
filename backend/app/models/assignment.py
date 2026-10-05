@@ -13,6 +13,8 @@ class DoctorPatientAssignment(Base):
     clinical_patient_id = Column(String(50), nullable=False, index=True)
     assigned_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     assigned_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    status = Column(String(20), default="active", server_default="active", nullable=False)
+    assignment_reason = Column(String(500), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("doctor_id", "clinical_patient_id", name="uq_doctor_patient_assignment"),

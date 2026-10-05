@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.neo4j_client import get_neo4j_driver
 
 logger = logging.getLogger(__name__)
@@ -8,10 +8,20 @@ def ingest_document_chunks_to_kg(
     patient_id: str,
     filename: str,
     chunks: List[Dict[str, Any]],
-    chunk_entities_map: Dict[int, List[Dict[str, Any]]]
+    chunk_entities_map: Dict[int, List[Dict[str, Any]]],
+    encounter_id: Optional[str] = None,
+    document_id: Optional[str] = None,
 ) -> Dict[str, int]:
     """
-    Ingests document chunks and extracted entities into Neo4j graph with provenance links.
+    Ingests document chunks and extracted entities into Neo4j with full provenance links.
+
+    Provenance chain created:
+        Patient -[:HAS_DOCUMENT_CHUNK]-> DocumentChunk
+        DocumentChunk -[:BELONGS_TO_ENCOUNTER]-> Encounter  (if encounter_id is provided)
+        DocumentChunk -[:MENTIONS]-> Condition/Treatment
+        Patient -[:HAS_CONDITION]-> Condition
+        Patient -[:RECEIVED_TREATMENT]-> Treatment
+
     Returns { "nodes_created": int, "relationships_created": int, "entities_extracted": int }.
     """
     driver = get_neo4j_driver()
@@ -33,7 +43,7 @@ def ingest_document_chunks_to_kg(
             entities = chunk_entities_map.get(idx, [])
             total_entities += len(entities)
 
-            # Create DocumentChunk node and link to Patient
+            # Create DocumentChunk node with full provenance fields
             session.run("""
                 MATCH (p:Patient {patient_id: $patient_id})
                 MERGE (d:DocumentChunk {chunk_id: $chunk_id})
@@ -41,6 +51,8 @@ def ingest_document_chunks_to_kg(
                               d.source_filename = $filename,
                               d.chunk_index = $idx,
                               d.patient_id = $patient_id,
+                              d.encounter_id = $encounter_id,
+                              d.document_id = $document_id,
                               d.created_at = datetime()
                 MERGE (p)-[:HAS_DOCUMENT_CHUNK]->(d)
             """, {
@@ -48,10 +60,26 @@ def ingest_document_chunks_to_kg(
                 "chunk_id": chunk_id,
                 "text": text,
                 "filename": filename,
-                "idx": idx
+                "idx": idx,
+                "encounter_id": encounter_id,
+                "document_id": document_id,
             })
             nodes_created += 1
             relationships_created += 1
+
+            # If encounter_id provided, link DocumentChunk -> Encounter for provenance
+            if encounter_id:
+                session.run("""
+                    MATCH (d:DocumentChunk {chunk_id: $chunk_id})
+                    MERGE (e:Encounter {encounter_id: $encounter_id})
+                    ON CREATE SET e.patient_id = $patient_id, e.created_at = datetime()
+                    MERGE (d)-[:BELONGS_TO_ENCOUNTER]->(e)
+                """, {
+                    "chunk_id": chunk_id,
+                    "encounter_id": encounter_id,
+                    "patient_id": patient_id,
+                })
+                relationships_created += 1
 
             # Link entities to DocumentChunk and Patient
             for ent in entities:

@@ -25,9 +25,16 @@ async def upload_document(
     request: Request,
     file: UploadFile = File(...),
     patient_id: str = Form(...),
+    encounter_id: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Upload a clinical document for a patient.
+    Optionally associate the document with a specific encounter via encounter_id.
+    This enables the full provenance chain:
+        Patient → Encounter → Document → Chunk → Evidence → KG/Answer
+    """
     # Check patient access permission
     has_access = await verify_patient_access(patient_id, current_user, db)
     if not has_access:
@@ -61,11 +68,12 @@ async def upload_document(
     with open(saved_path, "wb") as f:
         f.write(content)
 
-    # Create job in database
+    # Create job in database with optional encounter_id for provenance
     job = ProcessingJob(
         id=job_id,
         uploaded_by=current_user.id,
         clinical_patient_id=patient_id,
+        encounter_id=encounter_id or None,
         filename=file.filename,
         file_path=saved_path,
         status="pending",
@@ -78,25 +86,31 @@ async def upload_document(
         user_id=current_user.id,
         action="DOCUMENT_UPLOAD",
         clinical_patient_id=patient_id,
-        details={"filename": file.filename, "size_bytes": len(content), "job_id": str(job_id)},
+        details={
+            "filename": file.filename,
+            "size_bytes": len(content),
+            "job_id": str(job_id),
+            "encounter_id": encounter_id
+        },
         ip_address=request.client.host if request.client else None
     )
     db.add(audit)
     await db.commit()
 
-    # Enqueue Celery task (or fallback to synchronous run if Celery not active)
+    # Dispatch background document processing task
+    import asyncio
+    from app.workers.ingestion_tasks import _process_document_async
+    asyncio.create_task(_process_document_async(str(job_id)))
     try:
         process_clinical_document.delay(str(job_id))
-    except Exception as e:
-        logger.warning(f"Celery dispatch failed: {e}. Running ingestion synchronously in background...")
-        import asyncio
-        from app.workers.ingestion_tasks import _process_document_async
-        asyncio.create_task(_process_document_async(str(job_id)))
+    except Exception:
+        pass
 
     return {
         "job_id": str(job_id),
         "filename": file.filename,
         "patient_id": patient_id,
+        "encounter_id": encounter_id,
         "status": "pending",
         "message": "Document uploaded successfully. Processing initiated."
     }
@@ -128,6 +142,9 @@ async def get_job_status(
         "progress_message": job.progress_message,
         "filename": job.filename,
         "patient_id": job.clinical_patient_id,
+        "encounter_id": job.encounter_id,
+        "uploaded_by": str(job.uploaded_by),
+        "upload_date": job.created_at,
         "chunks_indexed": job.chunks_indexed,
         "entities_extracted": job.entities_extracted,
         "nodes_created": job.nodes_created,
@@ -143,6 +160,7 @@ async def list_patient_documents(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    """List all documents uploaded for a patient, including provenance fields."""
     has_access = await verify_patient_access(patient_id, current_user, db)
     if not has_access:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -156,10 +174,58 @@ async def list_patient_documents(
 
     return [
         {
-            "job_id": str(j.id),
+            "document_id": str(j.id),
             "filename": j.filename,
+            "patient_id": j.clinical_patient_id,
+            "encounter_id": j.encounter_id,
+            "uploaded_by": str(j.uploaded_by),
+            "upload_date": j.created_at,
+            "source": j.filename,
             "status": j.status,
-            "created_at": j.created_at,
+            "chunks_indexed": j.chunks_indexed,
+            "entities_extracted": j.entities_extracted,
+            "error_message": j.error_message
+        }
+        for j in jobs
+    ]
+
+@router.get("/encounter/{encounter_id}")
+async def list_encounter_documents(
+    encounter_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all documents associated with a specific clinical encounter.
+    Access is validated by verifying the caller has access to the owning patient.
+    """
+    stmt = select(ProcessingJob).where(
+        ProcessingJob.encounter_id == encounter_id
+    ).order_by(desc(ProcessingJob.created_at))
+
+    result = await db.execute(stmt)
+    jobs = result.scalars().all()
+
+    if not jobs:
+        return []
+
+    # Verify the caller has access to the patient who owns this encounter's documents
+    for j in jobs:
+        has_access = await verify_patient_access(j.clinical_patient_id, current_user, db)
+        if not has_access:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        break  # All jobs for the same encounter belong to the same patient
+
+    return [
+        {
+            "document_id": str(j.id),
+            "filename": j.filename,
+            "patient_id": j.clinical_patient_id,
+            "encounter_id": j.encounter_id,
+            "uploaded_by": str(j.uploaded_by),
+            "upload_date": j.created_at,
+            "source": j.filename,
+            "status": j.status,
             "chunks_indexed": j.chunks_indexed,
             "entities_extracted": j.entities_extracted,
             "error_message": j.error_message

@@ -67,6 +67,10 @@ CRITICAL RULES:
 3. Clearly distinguish between ACTIVE conditions/treatments and HISTORICAL/RESOLVED ones.
 4. If the evidence is incomplete or inconclusive on any detail, explicitly state the limitation.
 5. Do not recommend therapies not explicitly evidenced in the records.
+6. ANSWER SPECIFICITY & CONCISENESS:
+   - Directly answer the SPECIFIC question asked by the clinician first (e.g. if asked about medications, list the medications; if asked about conditions, list the conditions).
+   - Format the response with a direct bulleted list of items directly answering the question, followed optionally by a brief (1-2 sentence) Reason / Clinical Context.
+   - Do NOT dump unrelated diagnoses, procedures, or admission details unless they are directly necessary to explain the answer.
 """
 
     llm = get_llm_client()

@@ -11,6 +11,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import UsersPage from './pages/admin/UsersPage';
 import AssignmentsPage from './pages/admin/AssignmentsPage';
 import AuditPage from './pages/admin/AuditPage';
+import EvaluationPage from './pages/admin/EvaluationPage';
 
 // Doctor Pages
 import PatientList from './pages/doctor/PatientList';
@@ -63,6 +64,7 @@ export default function App() {
                 <Route path="/admin/users" element={<UsersPage />} />
                 <Route path="/admin/assignments" element={<AssignmentsPage />} />
                 <Route path="/admin/audit" element={<AuditPage />} />
+                <Route path="/admin/evaluation" element={<EvaluationPage />} />
               </Route>
             </Route>
 

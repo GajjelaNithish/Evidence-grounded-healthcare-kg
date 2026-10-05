@@ -7,6 +7,8 @@ class LoginRequest(BaseModel):
     username: str = Field(..., example="admin")
     password: str = Field(..., example="admin123")
 
+from typing import Optional, Literal, Dict, Any
+
 class UserOut(BaseModel):
     id: UUID
     username: str
@@ -15,6 +17,7 @@ class UserOut(BaseModel):
     clinical_patient_id: Optional[str] = None
     full_name: Optional[str] = None
     is_active: bool
+    patient_profile_data: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     model_config = {

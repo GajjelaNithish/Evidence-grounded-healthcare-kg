@@ -215,9 +215,11 @@ async def get_patient_timeline(
     OPTIONAL MATCH (p)-[r1:HAS_CONDITION]->(c:Condition)
     OPTIONAL MATCH (p)-[r2:RECEIVED_TREATMENT]->(t:Treatment)
     OPTIONAL MATCH (p)-[:HAD_ADMISSION]->(ae:AdmissionEvent)
+    OPTIONAL MATCH (p)-[:HAD_ENCOUNTER]->(e:Encounter)
     RETURN collect(DISTINCT {r: r1, c: c}) AS conds,
            collect(DISTINCT {r: r2, t: t}) AS treats,
-           collect(DISTINCT ae) AS adms
+           collect(DISTINCT ae) AS adms,
+           collect(DISTINCT e) AS encounters
     """
 
     with driver.session() as session:
@@ -264,6 +266,35 @@ async def get_patient_timeline(
                             f"Cost: INR {ae.get('total_cost_inr')} | "
                             f"Readmission: {'Yes' if ae.get('readmission') else 'No'}"
                         )
+                    })
+
+            # Encounters recorded via /encounters endpoint (synced to Neo4j)
+            seen_enc_dates = set()
+            for e in record["encounters"]:
+                if e and e.get("visit_date"):
+                    # Deduplicate by encounter_id if present; fall back to visit_date
+                    dedup_key = e.get("encounter_id") or e.get("visit_date")
+                    if dedup_key in seen_enc_dates:
+                        continue
+                    seen_enc_dates.add(dedup_key)
+
+                    parts = []
+                    if e.get("condition"):
+                        parts.append(f"Condition: {e.get('condition')}")
+                    if e.get("diagnosis"):
+                        parts.append(f"Diagnosis: {e.get('diagnosis')}")
+                    if e.get("treatment"):
+                        parts.append(f"Treatment: {e.get('treatment')}")
+                    if e.get("medication"):
+                        parts.append(f"Medication: {e.get('medication')}")
+
+                    timeline.append({
+                        "event_type": "Clinical Encounter",
+                        "title": e.get("condition") or e.get("diagnosis") or f"Clinical Visit",
+                        "date": str(e.get("visit_date")),
+                        "end_date": None,
+                        "status": "Recorded",
+                        "details": " | ".join(parts) if parts else f"Encounter {e.get('encounter_id', '')}"
                     })
 
     # Sort chronological

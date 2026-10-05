@@ -23,6 +23,7 @@ from app.documents.router import router as documents_router
 from app.query.router import router as query_router
 from app.kg.router import router as kg_router
 from app.admin.router import router as admin_router
+from app.encounters.router import router as encounters_router
 
 
 # Configure logging
@@ -90,6 +91,7 @@ app.include_router(documents_router, prefix="/api")
 app.include_router(query_router, prefix="/api")
 app.include_router(kg_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(encounters_router, prefix="/api")
 
 # System Health Check endpoint
 @app.get("/api/health", tags=["System"])

@@ -18,18 +18,14 @@ export function usePatientWorkspace(patientId) {
     try {
       const [summaryRes, timelineRes, subgraphRes, documentsRes] = await Promise.all([
         api.get(`/kg/analytics/${patientId}`).catch((err) => {
-          // Fallback structure if analytics 404s
-          if (err.response?.status === 404) {
-            return { data: { patient_id: patientId, age: 'N/A', gender: 'N/A', condition_count: 0, treatment_count: 0, admission_count: 0 } };
-          }
-          throw err;
+          return { data: { patient_id: patientId, age: 'N/A', gender: 'N/A', condition_count: 0, treatment_count: 0, admission_count: 0 } };
         }),
-        api.get(`/kg/timeline/${patientId}`),
+        api.get(`/kg/timeline/${patientId}`).catch(() => ({ data: [] })),
         api.get(`/kg/subgraph/${patientId}`).catch(() => ({ data: { elements: { nodes: [], edges: [] } } })),
         api.get(`/documents/patient/${patientId}`).catch(() => ({ data: [] })),
       ]);
 
-      setSummary(summaryRes.data);
+      setSummary(summaryRes.data || { patient_id: patientId, age: 'N/A', gender: 'N/A' });
       setTimeline(timelineRes.data || []);
       setGraphData(subgraphRes.data?.elements || { nodes: [], edges: [] });
       setDocuments(documentsRes.data || []);
@@ -37,6 +33,7 @@ export function usePatientWorkspace(patientId) {
       console.error('Failed to load patient workspace data:', err);
       const msg = err.response?.data?.detail || err.message || 'Could not load patient workspace.';
       setError(msg);
+      setSummary({ patient_id: patientId, age: 'N/A', gender: 'N/A' });
     } finally {
       setLoading(false);
     }

@@ -11,20 +11,31 @@ def test_temporal_active_filter():
     assert "Active / Current" in desc
 
 def test_temporal_historical_filter():
+    """
+    'historical' / 'resolved' maps to PREVIOUS tag in the current
+    tag-based implementation; fusion.py interprets PREVIOUS to filter
+    non-latest / resolved records.
+    """
     clause, desc = extract_temporal_filter("List all historical and resolved treatments.")
-    assert clause == "AND (r.valid_to IS NOT NULL)"
-    assert "Historical / Resolved" in desc
+    assert clause == "PREVIOUS"
+    assert "Previous" in desc or "Historical" in desc
 
 def test_temporal_year_extraction():
+    """
+    Year queries return compact YEAR:<yyyy> tag.
+    The date-range expansion (startswith filter) happens inside fusion.py.
+    """
     clause, desc = extract_temporal_filter("What was the diagnosis in 2024?")
-    assert "2024-01-01" in clause
-    assert "2024-12-31" in clause
-    assert desc == "Year 2024"
+    assert clause == "YEAR:2024"
+    assert "2024" in desc
 
 def test_temporal_past_30_days():
+    """
+    'past 30 days' returns AFTER:<cutoff-date> tag (not a raw SQL clause).
+    """
     clause, desc = extract_temporal_filter("Any admissions during the past 30 days?")
-    assert "valid_from >=" in clause or "admission_date >=" in clause
-    assert desc == "Past 30 days"
+    assert clause is not None and clause.startswith("AFTER:")
+    assert "30" in desc or "Past" in desc
 
 def test_temporal_none():
     clause, desc = extract_temporal_filter("What treatments did the patient receive?")

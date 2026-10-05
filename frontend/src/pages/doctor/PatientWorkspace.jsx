@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { PlusCircle, User, Calendar, MapPin, ArrowLeft } from 'lucide-react';
 import { usePatientWorkspace } from '../../hooks/usePatientWorkspace';
 
 // Workspace Tabs
@@ -8,10 +9,12 @@ import Timeline from './workspace/Timeline';
 import Documents from './workspace/Documents';
 import Graph from './workspace/Graph';
 import QA from './workspace/QA';
+import AddEncounterModal from './workspace/AddEncounterModal';
 
 export default function PatientWorkspace() {
   const { patientId } = useParams();
   const [activeTab, setActiveTab] = useState('Overview');
+  const [showAddEncounter, setShowAddEncounter] = useState(false);
 
   const {
     summary,
@@ -23,28 +26,57 @@ export default function PatientWorkspace() {
     refetch,
   } = usePatientWorkspace(patientId);
 
-  const metaParts = [];
-  if (summary?.gender && summary.gender !== 'N/A') metaParts.push(summary.gender);
-  if (summary?.age && summary.age !== 'N/A') metaParts.push(`${summary.age} years`);
-  if (summary?.state && summary.state !== 'N/A') metaParts.push(summary.state);
-  const metaString = metaParts.length > 0 ? metaParts.join(' · ') : `Patient record P-${patientId}`;
+  const patientName = summary?.name || `Patient ${patientId}`;
+  const ageStr = summary?.age && summary.age !== 'N/A' ? `${summary.age} yrs` : null;
+  const genderStr = summary?.gender && summary.gender !== 'N/A' ? summary.gender : null;
+  const stateStr = summary?.state && summary.state !== 'N/A' ? summary.state : null;
 
   return (
     <div className="workspace-page">
-      {/* Back Link */}
-      <div className="workspace-nav-back">
-        <Link to="/doctor/patients" className="back-link">
-          ← Patients
+      {/* Breadcrumb Navigation Trail */}
+      <div className="workspace-breadcrumb-bar flex-align-gap" style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+        <Link to="/doctor/patients" className="back-link flex-align-gap" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+          <ArrowLeft size={14} /> Patients
         </Link>
+        <span style={{ opacity: 0.5 }}>/</span>
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{patientId}</span>
+        <span style={{ opacity: 0.5 }}>/</span>
+        <span className="text-accent" style={{ fontWeight: 500 }}>{activeTab}</span>
       </div>
 
-      {/* Patient Header */}
-      <header className="workspace-header-section">
-        <div className="workspace-header-top">
-          <h1 className="workspace-patient-title">Patient {patientId}</h1>
-          <span className="workspace-updated-indicator">Last updated 2 hours ago</span>
+      {/* Compact Patient Profile Header */}
+      <header className="workspace-profile-header-card">
+        <div className="profile-header-main">
+          <div className="profile-avatar-circle">
+            <User size={24} />
+          </div>
+          <div className="profile-info-block">
+            <div className="profile-title-row">
+              <h1 className="profile-patient-name">{patientName}</h1>
+              <span className="profile-id-tag">{patientId}</span>
+            </div>
+            <div className="profile-meta-row">
+              {genderStr && <span className="profile-meta-item">{genderStr}</span>}
+              {ageStr && <span className="profile-meta-item">• {ageStr}</span>}
+              {stateStr && (
+                <span className="profile-meta-item flex-align-gap" style={{ gap: '4px' }}>
+                  • <MapPin size={12} /> {stateStr}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="workspace-patient-subtitle">{metaString}</div>
+
+        {/* Obvious "+ Add Clinical Visit" Doctor Action */}
+        <div className="profile-header-actions">
+          <button
+            type="button"
+            className="btn-primary-action flex-align-gap"
+            onClick={() => setShowAddEncounter(true)}
+          >
+            <PlusCircle size={16} /> Add Clinical Visit
+          </button>
+        </div>
       </header>
 
       <div className="divider-line" />
@@ -73,7 +105,7 @@ export default function PatientWorkspace() {
           </div>
         ) : error && !summary ? (
           <div className="workspace-error-panel">
-            <p className="error-message-text">Could not load patient records. Check connection and retry.</p>
+            <p className="error-message-text">Could not load patient records. Check authorization or network.</p>
             <button type="button" onClick={refetch} className="btn-secondary-action">
               Retry
             </button>
@@ -82,10 +114,12 @@ export default function PatientWorkspace() {
           <div className="workspace-fade-in" key={activeTab}>
             {activeTab === 'Overview' && (
               <Overview
+                patientId={patientId}
                 summary={summary}
                 timeline={timeline}
                 documents={documents}
                 onNavigateTab={setActiveTab}
+                onOpenAddEncounter={() => setShowAddEncounter(true)}
               />
             )}
             {activeTab === 'Timeline' && (
@@ -116,6 +150,18 @@ export default function PatientWorkspace() {
           </div>
         )}
       </main>
+
+      {/* Add Clinical Visit Modal */}
+      {showAddEncounter && (
+        <AddEncounterModal
+          patientId={patientId}
+          onClose={() => setShowAddEncounter(false)}
+          onEncounterCreated={() => {
+            setShowAddEncounter(false);
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 }

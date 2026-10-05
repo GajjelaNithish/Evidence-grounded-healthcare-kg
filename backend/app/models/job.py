@@ -11,6 +11,7 @@ class ProcessingJob(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     clinical_patient_id = Column(String(50), nullable=False, index=True)
+    encounter_id = Column(String(50), nullable=True, index=True)  # Optional: link to a specific encounter
     filename = Column(String(500), nullable=False)
     file_path = Column(String(500), nullable=False)
     status = Column(String(20), default="pending", nullable=False)
@@ -27,6 +28,7 @@ class ProcessingJob(Base):
         CheckConstraint("status IN ('pending', 'processing', 'completed', 'failed')", name="check_job_status"),
         Index("idx_jobs_patient", "clinical_patient_id"),
         Index("idx_jobs_status", "status"),
+        Index("idx_jobs_encounter", "encounter_id"),
     )
 
     uploader = relationship("User", foreign_keys=[uploaded_by], back_populates="jobs")

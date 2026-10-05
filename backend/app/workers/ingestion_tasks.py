@@ -35,6 +35,7 @@ async def _process_document_async(job_id_str: str):
         return
 
     patient_id = job.clinical_patient_id
+    encounter_id = job.encounter_id  # May be None for legacy documents
     file_path = job.file_path
     filename = job.filename
 
@@ -66,6 +67,7 @@ async def _process_document_async(job_id_str: str):
         await _update_job_status(job_id_str, progress_message="Generating embeddings & indexing in FAISS...")
 
         # 4. Embeddings & FAISS indexing
+        # Include encounter_id in FAISS metadata for provenance-aware retrieval
         texts_to_embed = [c["text"] for c in chunks]
         embeddings = encode_batch(texts_to_embed)
 
@@ -75,7 +77,9 @@ async def _process_document_async(job_id_str: str):
                 "text": c["text"],
                 "source_filename": filename,
                 "chunk_index": c["chunk_index"],
-                "patient_id": patient_id
+                "patient_id": patient_id,
+                "encounter_id": encounter_id,  # Provenance: which encounter generated this chunk
+                "document_id": job_id_str,
             })
 
         add_chunks_to_patient_index(patient_id, meta_chunks, embeddings)
@@ -83,11 +87,14 @@ async def _process_document_async(job_id_str: str):
         await _update_job_status(job_id_str, progress_message="Building Knowledge Graph relationships...")
 
         # 5. Neo4j Knowledge Graph Ingestion
+        # Pass encounter_id so DocumentChunk nodes link to the correct Encounter node
         kg_stats = ingest_document_chunks_to_kg(
             patient_id=patient_id,
             filename=filename,
             chunks=chunks,
-            chunk_entities_map=chunk_entities_map
+            chunk_entities_map=chunk_entities_map,
+            encounter_id=encounter_id,
+            document_id=job_id_str,
         )
 
         # 6. Complete Job
@@ -100,7 +107,7 @@ async def _process_document_async(job_id_str: str):
             nodes_created=kg_stats["nodes_created"],
             relationships_created=kg_stats["relationships_created"]
         )
-        logger.info(f"Job {job_id_str} completed successfully for patient {patient_id}.")
+        logger.info(f"Job {job_id_str} completed successfully for patient {patient_id} (encounter: {encounter_id}).")
 
     except Exception as e:
         logger.error(f"Job {job_id_str} failed: {e}", exc_info=True)

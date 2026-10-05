@@ -107,11 +107,12 @@ async def verify_patient_access(
     if user.role == "patient":
         return str(user.clinical_patient_id) == str(patient_id)
 
-    # 3. Doctor can only access assigned patients
+    # 3. Doctor can only access assigned patients with active status
     if user.role == "doctor":
         stmt = select(DoctorPatientAssignment).where(
             DoctorPatientAssignment.doctor_id == user.id,
-            DoctorPatientAssignment.clinical_patient_id == str(patient_id)
+            DoctorPatientAssignment.clinical_patient_id == str(patient_id),
+            (DoctorPatientAssignment.status == "active") | (DoctorPatientAssignment.status.is_(None))
         )
         result = await db.execute(stmt)
         assignment = result.scalar_one_or_none()
