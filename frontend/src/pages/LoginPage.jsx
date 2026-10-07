@@ -6,8 +6,6 @@ import {
   IconUser,
   IconShield,
   IconStethoscope,
-  IconNetwork,
-  IconBrain,
   IconArrowRight,
   IconSparkles
 } from '@tabler/icons-react';
@@ -50,7 +48,7 @@ export default function LoginPage() {
   return (
     <div className="login-viewport">
       <div className="login-card-split">
-        {/* Left Side: Product Identity & Features */}
+        {/* Left Side: Product Identity */}
         <div className="login-identity-panel">
           <div className="login-identity-content">
             <div className="login-brand-header">
@@ -61,35 +59,8 @@ export default function LoginPage() {
             </div>
             
             <p className="login-brand-tagline">
-              Evidence-grounded patient knowledge graph & clinical decision workspace.
+              Evidence-grounded patient knowledge graph platform.
             </p>
-
-            {/* Feature Highlights */}
-            <div className="login-features-list">
-              <div className="login-feature-item">
-                <div className="feature-icon"><IconNetwork size={20} /></div>
-                <div>
-                  <h4>Interactive Knowledge Graph</h4>
-                  <p>Visualize patient encounters, lab results, and medical entities in real-time.</p>
-                </div>
-              </div>
-
-              <div className="login-feature-item">
-                <div className="feature-icon"><IconBrain size={20} /></div>
-                <div>
-                  <h4>Evidence-Grounded Q&A</h4>
-                  <p>Query medical histories backed by explicit citations from EHR records.</p>
-                </div>
-              </div>
-
-              <div className="login-feature-item">
-                <div className="feature-icon"><IconShield size={20} /></div>
-                <div>
-                  <h4>Role-Based Access Control</h4>
-                  <p>Tailored interfaces for Administrators, Doctors, and Patients.</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="login-identity-footer">
@@ -164,34 +135,37 @@ export default function LoginPage() {
               {error && <div className="login-inline-error">{error}</div>}
             </form>
 
-            {/* Quick Fill Dev Buttons */}
+            {/* Quick Fill Dev Buttons with Actual Database Credentials */}
             {import.meta.env.DEV && (
               <div className="login-quick-fill-section" style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
                 <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>
-                  ⚡ Development Quick Fill
+                  ⚡ Quick Fill Credentials
                 </span>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-outline"
-                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', flex: 1 }}
+                    style={{ fontSize: '0.75rem', padding: '0.35rem 0.6rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onClick={() => fillCredentials('admin', 'admin123')}
+                    title="admin / admin123"
                   >
                     <IconShield size={14} style={{ marginRight: '4px' }} /> Admin
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline"
-                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', flex: 1 }}
-                    onClick={() => fillCredentials('doc_smith', 'doc123')}
+                    style={{ fontSize: '0.75rem', padding: '0.35rem 0.6rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={() => fillCredentials('dr_smith', 'doctor123')}
+                    title="dr_smith / doctor123"
                   >
                     <IconStethoscope size={14} style={{ marginRight: '4px' }} /> Doctor
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline"
-                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', flex: 1 }}
-                    onClick={() => fillCredentials('pat_john', 'pat123')}
+                    style={{ fontSize: '0.75rem', padding: '0.35rem 0.6rem', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={() => fillCredentials('patient_rajesh', 'patient123')}
+                    title="patient_rajesh / patient123"
                   >
                     <IconUser size={14} style={{ marginRight: '4px' }} /> Patient
                   </button>
@@ -209,4 +183,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
 
