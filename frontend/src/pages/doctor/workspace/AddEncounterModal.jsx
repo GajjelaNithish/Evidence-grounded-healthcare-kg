@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Stethoscope, Pill, FileText, AlertCircle, PlusCircle } from 'lucide-react';
+import { Calendar, Stethoscope, Pill, FileText, AlertCircle, PlusCircle, X } from 'lucide-react';
 import api from '../../../api';
 
 export default function AddEncounterModal({ patientId, onClose, onEncounterCreated }) {
@@ -54,11 +54,22 @@ export default function AddEncounterModal({ patientId, onClose, onEncounterCreat
   return (
     <div className="modal-backdrop">
       <div className="modal-card modal-large">
-        <div className="modal-header-row">
-          <h3 className="modal-title flex-align-gap">
-            <PlusCircle size={20} className="text-primary" /> Add Clinical Visit
-          </h3>
-          <span className="qa-subtitle-badge">Patient {patientId}</span>
+        <div className="modal-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 className="modal-title flex-align-gap" style={{ margin: 0 }}>
+              <PlusCircle size={20} className="text-primary" /> Add Clinical Visit
+            </h3>
+            <span className="qa-subtitle-badge">Patient {patientId}</span>
+          </div>
+          <button
+            type="button"
+            className="btn-icon-close"
+            onClick={onClose}
+            aria-label="Close"
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+          >
+            <X size={18} />
+          </button>
         </div>
         <p className="page-subtitle" style={{ marginTop: '-8px', marginBottom: '16px' }}>
           Record a new temporal clinical encounter to append to the patient's longitudinal record.

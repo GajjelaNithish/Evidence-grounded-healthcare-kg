@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { IconSearch, IconX, IconShieldCheck, IconHistory } from '@tabler/icons-react';
 import api from '../../api';
+import { PageHeader, DataTable, StatusBadge } from '../../components/ui';
 
 export default function AuditPage() {
   const [logs, setLogs] = useState([]);
@@ -26,31 +28,110 @@ export default function AuditPage() {
     fetchLogs();
   }, [actionFilter, patientFilter]);
 
-  const getActionClass = (action) => {
+  const getActionBadge = (action) => {
     const act = String(action || '').toUpperCase();
-    if (act.includes('QUERY')) return 'action-query';
-    if (act.includes('UPLOAD')) return 'action-upload';
-    if (act.includes('LOGIN')) return 'action-login';
-    return 'action-default';
+    if (act.includes('QUERY')) return <StatusBadge status="completed" label={action} />;
+    if (act.includes('UPLOAD')) return <StatusBadge status="active" label={action} />;
+    if (act.includes('LOGIN')) return <StatusBadge status="inactive" label={action} />;
+    if (act.includes('ERROR') || act.includes('FAILED')) return <StatusBadge status="error" label={action} />;
+    return <StatusBadge status="pending" label={action} />;
   };
+
+  const columns = [
+    {
+      header: 'Timestamp',
+      key: 'timestamp',
+      width: '180px',
+      render: (log) => (
+        <span className="font-mono" style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+          {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Recent'}
+        </span>
+      )
+    },
+    {
+      header: 'User Principal',
+      key: 'username',
+      render: (log) => (
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+          {log.username || log.user_id || 'system'}
+        </span>
+      )
+    },
+    {
+      header: 'Audited Action',
+      key: 'action',
+      render: (log) => getActionBadge(log.action)
+    },
+    {
+      header: 'Patient Scope',
+      key: 'clinical_patient_id',
+      render: (log) => (
+        <span className="font-mono" style={{ color: (log.clinical_patient_id || log.patient_id) ? 'var(--accent-primary)' : 'var(--text-muted)' }}>
+          {log.clinical_patient_id || log.patient_id || '—'}
+        </span>
+      )
+    },
+    {
+      header: 'Audit Event Metadata',
+      key: 'details',
+      render: (log) => {
+        const detailsStr =
+          typeof log.details === 'object' && log.details !== null
+            ? JSON.stringify(log.details)
+            : (log.details || '—');
+        return (
+          <span
+            className="font-mono"
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.8rem',
+              display: 'block',
+              maxWidth: '400px',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis'
+            }}
+            title={detailsStr}
+          >
+            {detailsStr}
+          </span>
+        );
+      }
+    }
+  ];
 
   return (
     <div className="page-root">
       {/* Header */}
-      <div className="page-header-row">
-        <h1 className="page-title">Audit log</h1>
-      </div>
+      <PageHeader
+        title="Audit Logs & Compliance Trail"
+        description="Immutable administrative tracking of document ingestion, clinical queries, and patient record access."
+        badge={`${logs.length} Logged Events`}
+      />
 
-      {/* Filter Bar */}
-      <div className="admin-filters-bar">
-        <div className="filter-select-group">
-          <label className="filter-select-label">Action:</label>
+      {/* Filter Row */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '1rem',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          marginBottom: '1.25rem',
+          padding: '0.75rem 1rem',
+          background: 'var(--bg-card)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-subtle)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Filter Action:</label>
           <select
-            className="filter-select-dropdown"
+            className="input-field"
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
+            style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
           >
-            <option value="">All</option>
+            <option value="">All Actions</option>
             <option value="CLINICAL_QUERY">Clinical Query</option>
             <option value="DOCUMENT_UPLOAD">Document Upload</option>
             <option value="KG_VIEW">KG View</option>
@@ -58,71 +139,35 @@ export default function AuditPage() {
           </select>
         </div>
 
-        <div className="filter-select-group">
-          <label className="filter-select-label">Patient:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Patient Filter:</label>
           <input
-            className="search-input compact-input"
-            placeholder="Filter patient ID..."
+            className="input-field"
+            placeholder="Filter by Patient ID..."
             value={patientFilter}
             onChange={(e) => setPatientFilter(e.target.value)}
+            style={{ width: '180px', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
           />
+          {patientFilter && (
+            <button
+              type="button"
+              onClick={() => setPatientFilter('')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <IconX size={14} />
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="section-divider" />
-
-      {/* Audit Table */}
-      {loading ? (
-        <div className="skeleton-table">
-          <div className="skeleton skeleton-row-left" />
-          <div className="skeleton skeleton-row-left" />
-          <div className="skeleton skeleton-row-left" />
-        </div>
-      ) : logs.length === 0 ? (
-        <div className="empty-state-container">
-          <p className="empty-state-text">No audit entries found matching search criteria.</p>
-        </div>
-      ) : (
-        <div className="compact-table-container">
-          <table className="compact-table">
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Patient</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => {
-                const detailsStr =
-                  typeof log.details === 'object' && log.details !== null
-                    ? JSON.stringify(log.details)
-                    : (log.details || '—');
-
-                return (
-                  <tr key={log.id}>
-                    <td className="font-mono text-muted">
-                      {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Recent'}
-                    </td>
-                    <td className="font-semibold">{log.username || log.user_id || 'system'}</td>
-                    <td>
-                      <span className={`audit-action-text ${getActionClass(log.action)}`}>
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="font-mono">{log.clinical_patient_id || log.patient_id || '—'}</td>
-                    <td className="text-muted truncate-cell" title={detailsStr}>
-                      {detailsStr}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Audit DataTable */}
+      <DataTable
+        columns={columns}
+        data={logs}
+        loading={loading}
+        emptyTitle="No audit logs recorded"
+        emptyMessage="No system audit entries match the current filter query."
+      />
     </div>
   );
 }

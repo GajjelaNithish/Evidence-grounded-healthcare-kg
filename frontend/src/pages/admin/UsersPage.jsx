@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, UserCheck, Shield, AlertCircle, PlusCircle } from 'lucide-react';
+import {
+  IconUserPlus,
+  IconUserCheck,
+  IconShield,
+  IconAlertCircle,
+  IconPlus,
+  IconUsers,
+  IconCheck,
+  IconX
+} from '@tabler/icons-react';
 import api from '../../api';
+import { PageHeader, DataTable, RoleBadge, StatusBadge } from '../../components/ui';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -33,54 +43,106 @@ export default function UsersPage() {
     return true;
   });
 
+  const columns = [
+    {
+      header: 'Username',
+      key: 'username',
+      render: (u) => (
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+          {u.username}
+        </span>
+      )
+    },
+    {
+      header: 'Email Address',
+      key: 'email',
+      render: (u) => (
+        <span style={{ color: 'var(--text-secondary)' }}>
+          {u.email || '—'}
+        </span>
+      )
+    },
+    {
+      header: 'System Role',
+      key: 'role',
+      render: (u) => <RoleBadge role={u.role} />
+    },
+    {
+      header: 'Linked Patient ID',
+      key: 'clinical_patient_id',
+      render: (u) => (
+        <span className="font-mono" style={{ color: u.clinical_patient_id ? 'var(--accent-primary)' : 'var(--text-muted)' }}>
+          {u.clinical_patient_id || '—'}
+        </span>
+      )
+    },
+    {
+      header: 'Status',
+      key: 'is_active',
+      render: (u) => <StatusBadge status={u.is_active ? 'active' : 'inactive'} />
+    }
+  ];
+
   return (
     <div className="page-root">
-      {/* Header Row */}
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-title">User Account & Profile Management</h1>
-          <p className="page-subtitle">Admin-controlled user accounts and patient clinical record creation</p>
-        </div>
-        <div className="flex-align-gap">
-          <button
-            type="button"
-            onClick={() => setShowCreatePatientProfile(true)}
-            className="btn-secondary-action flex-align-gap"
-          >
-            <PlusCircle size={16} /> Create Patient Profile
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowCreateUser(true)}
-            className="btn-primary-action flex-align-gap"
-          >
-            <UserPlus size={16} /> Create User Account
-          </button>
-        </div>
-      </div>
+      {/* Header */}
+      <PageHeader
+        title="User & Patient Accounts"
+        description="Admin-controlled authentication credentials, system roles, and clinical patient record linkages."
+        badge={`${filtered.length} Users`}
+      >
+        <button
+          type="button"
+          onClick={() => setShowCreatePatientProfile(true)}
+          className="btn-secondary"
+        >
+          <IconPlus size={16} /> Create Patient Record
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowCreateUser(false || true)}
+          className="btn-primary"
+        >
+          <IconUserPlus size={16} /> Create User Account
+        </button>
+      </PageHeader>
 
-      {/* Filters Bar */}
-      <div className="admin-filters-bar">
-        <div className="filter-select-group">
-          <label className="filter-select-label">Filter by Role:</label>
+      {/* Filter Row */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '1rem',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          marginBottom: '1.25rem',
+          padding: '0.75rem 1rem',
+          background: 'var(--bg-card)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-subtle)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Role:</label>
           <select
-            className="filter-select-dropdown"
+            className="input-field"
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
+            style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
           >
             <option value="ALL">All Roles ({users.length})</option>
             <option value="doctor">Doctors</option>
             <option value="patient">Patients</option>
-            <option value="admin">Admins</option>
+            <option value="admin">Administrators</option>
           </select>
         </div>
 
-        <div className="filter-select-group">
-          <label className="filter-select-label">Status:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Status:</label>
           <select
-            className="filter-select-dropdown"
+            className="input-field"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
           >
             <option value="ALL">All Statuses</option>
             <option value="active">Active Only</option>
@@ -89,50 +151,14 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="section-divider" />
-
-      {/* Users Table */}
-      {loading ? (
-        <div className="skeleton-table">
-          <div className="skeleton skeleton-row-left" />
-          <div className="skeleton skeleton-row-left" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="empty-state-container">
-          <p className="empty-state-text">No user accounts found matching current filters.</p>
-        </div>
-      ) : (
-        <div className="compact-table-container">
-          <table className="compact-table">
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Clinical Patient ID</th>
-                <th>Account Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u) => (
-                <tr key={u.id}>
-                  <td className="font-semibold">{u.username}</td>
-                  <td className="text-secondary">{u.email}</td>
-                  <td>
-                    <span className={`role-text-label role-${u.role}`}>{u.role.toUpperCase()}</span>
-                  </td>
-                  <td className="font-mono text-muted">{u.clinical_patient_id || '—'}</td>
-                  <td>
-                    <span className={u.is_active ? 'status-active-text' : 'status-inactive-text'}>
-                      {u.is_active ? '● Active' : '○ Inactive'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Users DataTable */}
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={loading}
+        emptyTitle="No users found"
+        emptyMessage="No user accounts match the current filter criteria."
+      />
 
       {/* Create User Account Modal */}
       {showCreateUser && (
@@ -191,16 +217,28 @@ function CreateUserModal({ onClose, onCreated }) {
   return (
     <div className="modal-backdrop">
       <div className="modal-card">
-        <h3 className="modal-title">Create User Account</h3>
-        <p className="page-subtitle" style={{ marginTop: '-8px', marginBottom: '16px' }}>
-          Create credentials for Doctor, Patient, or Admin role
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 className="modal-title" style={{ margin: 0 }}>Create User Account</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+          >
+            <IconX size={18} />
+          </button>
+        </div>
+
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '-4px', marginBottom: '16px' }}>
+          Provision credentials for Doctor, Patient, or Administrator roles.
         </p>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-field-block">
-            <label className="login-field-label">Username</label>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Username *
+            </label>
             <input
-              className="login-field-input"
+              className="input-field"
               type="text"
               required
               placeholder="e.g. dr_smith"
@@ -209,10 +247,12 @@ function CreateUserModal({ onClose, onCreated }) {
             />
           </div>
 
-          <div className="form-field-block">
-            <label className="login-field-label">Email Address</label>
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Email Address *
+            </label>
             <input
-              className="login-field-input"
+              className="input-field"
               type="email"
               required
               placeholder="e.g. dr_smith@hospital.org"
@@ -221,10 +261,12 @@ function CreateUserModal({ onClose, onCreated }) {
             />
           </div>
 
-          <div className="form-field-block">
-            <label className="login-field-label">Password</label>
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Password *
+            </label>
             <input
-              className="login-field-input"
+              className="input-field"
               type="password"
               required
               placeholder="Minimum 6 characters"
@@ -233,10 +275,12 @@ function CreateUserModal({ onClose, onCreated }) {
             />
           </div>
 
-          <div className="form-field-block">
-            <label className="login-field-label">Role</label>
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Role *
+            </label>
             <select
-              className="filter-select-dropdown full-width"
+              className="input-field"
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value })}
             >
@@ -247,12 +291,14 @@ function CreateUserModal({ onClose, onCreated }) {
           </div>
 
           {form.role === 'patient' && (
-            <div className="form-field-block">
-              <label className="login-field-label">Clinical Patient ID (Optional Link)</label>
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Linked Clinical Patient ID (e.g. 1 or PAT-000001)
+              </label>
               <input
-                className="login-field-input"
+                className="input-field"
                 type="text"
-                placeholder="e.g. PAT-000001"
+                placeholder="Patient ID in Knowledge Graph"
                 value={form.clinical_patient_id}
                 onChange={(e) => setForm({ ...form, clinical_patient_id: e.target.value })}
               />
@@ -260,17 +306,17 @@ function CreateUserModal({ onClose, onCreated }) {
           )}
 
           {error && (
-            <div className="login-inline-error modal-error flex-align-gap">
-              <AlertCircle size={16} /> {error}
+            <div style={{ color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconAlertCircle size={16} /> {error}
             </div>
           )}
 
-          <div className="modal-actions-row">
-            <button type="button" className="btn-secondary-action" onClick={onClose} disabled={submitting}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary-action" disabled={submitting}>
-              {submitting ? 'Creating User…' : 'Create User Account'}
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Creating User…' : 'Create User'}
             </button>
           </div>
         </form>
@@ -281,35 +327,31 @@ function CreateUserModal({ onClose, onCreated }) {
 
 function CreatePatientProfileModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
-    name: '',
+    patient_id: '',
     age: '',
     gender: 'Male',
-    create_user_account: true,
-    username: '',
-    email: '',
-    password: '',
+    state: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.patient_id.trim()) return;
+
     setSubmitting(true);
     setError(null);
 
     try {
       await api.post('/admin/patients', {
-        name: form.name.trim(),
+        patient_id: form.patient_id.trim(),
         age: form.age ? parseInt(form.age, 10) : undefined,
-        gender: form.gender,
-        create_user_account: form.create_user_account,
-        username: form.create_user_account ? form.username.trim() : undefined,
-        email: form.create_user_account ? form.email.trim() : undefined,
-        password: form.create_user_account ? form.password : undefined,
+        gender: form.gender || undefined,
+        state: form.state.trim() || undefined,
       });
       onCreated();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create patient profile');
+      setError(err.response?.data?.detail || 'Failed to create patient record in Knowledge Graph');
     } finally {
       setSubmitting(false);
     }
@@ -318,29 +360,43 @@ function CreatePatientProfileModal({ onClose, onCreated }) {
   return (
     <div className="modal-backdrop">
       <div className="modal-card">
-        <h3 className="modal-title">Create Patient Record & Profile</h3>
-        <p className="page-subtitle" style={{ marginTop: '-8px', marginBottom: '16px' }}>
-          Generates a unique deterministic Patient ID (PAT-XXXXXX) and optional login account
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 className="modal-title" style={{ margin: 0 }}>Create Patient Clinical Record</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+          >
+            <IconX size={18} />
+          </button>
+        </div>
+
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '-4px', marginBottom: '16px' }}>
+          Adds a canonical Patient entity into the Neo4j Knowledge Graph.
         </p>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-field-block">
-            <label className="login-field-label">Patient Full Name</label>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Patient ID *
+            </label>
             <input
-              className="login-field-input"
+              className="input-field"
               type="text"
               required
-              placeholder="e.g. Eleanor Vance"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g. PAT-000004 or 4"
+              value={form.patient_id}
+              onChange={(e) => setForm({ ...form, patient_id: e.target.value })}
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-field-block">
-              <label className="login-field-label">Age</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Age
+              </label>
               <input
-                className="login-field-input"
+                className="input-field"
                 type="number"
                 placeholder="e.g. 52"
                 value={form.age}
@@ -348,10 +404,12 @@ function CreatePatientProfileModal({ onClose, onCreated }) {
               />
             </div>
 
-            <div className="form-field-block">
-              <label className="login-field-label">Gender</label>
+            <div>
+              <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                Gender
+              </label>
               <select
-                className="filter-select-dropdown full-width"
+                className="input-field"
                 value={form.gender}
                 onChange={(e) => setForm({ ...form, gender: e.target.value })}
               >
@@ -362,69 +420,31 @@ function CreatePatientProfileModal({ onClose, onCreated }) {
             </div>
           </div>
 
-          <div className="form-field-block" style={{ marginTop: '12px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: 'var(--font-sm)' }}>
-              <input
-                type="checkbox"
-                checked={form.create_user_account}
-                onChange={(e) => setForm({ ...form, create_user_account: e.target.checked })}
-              />
-              Create Patient Portal User Account Credentials
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              State / Region
             </label>
+            <input
+              className="input-field"
+              type="text"
+              placeholder="e.g. Maharashtra, Karnataka"
+              value={form.state}
+              onChange={(e) => setForm({ ...form, state: e.target.value })}
+            />
           </div>
 
-          {form.create_user_account && (
-            <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: 'var(--radius-md)', margin: '12px 0' }}>
-              <div className="form-field-block">
-                <label className="login-field-label">Patient Username</label>
-                <input
-                  className="login-field-input"
-                  type="text"
-                  required={form.create_user_account}
-                  placeholder="e.g. eleanor_vance"
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                />
-              </div>
-
-              <div className="form-field-block">
-                <label className="login-field-label">Patient Email</label>
-                <input
-                  className="login-field-input"
-                  type="email"
-                  required={form.create_user_account}
-                  placeholder="e.g. eleanor@example.org"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              </div>
-
-              <div className="form-field-block">
-                <label className="login-field-label">Password</label>
-                <input
-                  className="login-field-input"
-                  type="password"
-                  required={form.create_user_account}
-                  placeholder="Minimum 6 characters"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                />
-              </div>
-            </div>
-          )}
-
           {error && (
-            <div className="login-inline-error modal-error flex-align-gap">
-              <AlertCircle size={16} /> {error}
+            <div style={{ color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconAlertCircle size={16} /> {error}
             </div>
           )}
 
-          <div className="modal-actions-row">
-            <button type="button" className="btn-secondary-action" onClick={onClose} disabled={submitting}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary-action" disabled={submitting || !form.name.trim()}>
-              {submitting ? 'Generating Record…' : 'Create Patient Profile'}
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Creating Patient…' : 'Create Patient'}
             </button>
           </div>
         </form>

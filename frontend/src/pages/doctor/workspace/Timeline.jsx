@@ -31,6 +31,7 @@ export default function Timeline({ timeline = [] }) {
     if (type === 'Hospital Admission')  return 'dot-warning';
     if (type === 'Condition Diagnosis') return 'dot-danger';
     if (type === 'Treatment Course')    return 'dot-success';
+    if (type === 'Lab / Investigation') return 'dot-observation';
     const text = `${item.status || ''} ${item.details || ''}`.toLowerCase();
     if (text.includes('recovered'))     return 'dot-success';
     if (text.includes('stable'))        return 'dot-warning';
@@ -43,6 +44,7 @@ export default function Timeline({ timeline = [] }) {
     if (event_type === 'Hospital Admission')  return 'badge-admission';
     if (event_type === 'Condition Diagnosis') return 'badge-condition';
     if (event_type === 'Treatment Course')    return 'badge-treatment';
+    if (event_type === 'Lab / Investigation') return 'badge-observation';
     return 'badge-default';
   };
 
@@ -52,6 +54,7 @@ export default function Timeline({ timeline = [] }) {
       <div className="timeline-legend">
         <span className="legend-item"><span className="legend-dot dot-danger" /> Condition</span>
         <span className="legend-item"><span className="legend-dot dot-success" /> Treatment</span>
+        <span className="legend-item"><span className="legend-dot dot-observation" style={{ backgroundColor: '#ec4899' }} /> Lab / Investigation</span>
         <span className="legend-item"><span className="legend-dot dot-warning" /> Admission</span>
         <span className="legend-item"><span className="legend-dot dot-info" /> Encounter</span>
       </div>

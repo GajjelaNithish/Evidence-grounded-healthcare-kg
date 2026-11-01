@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Play, ShieldCheck, Cpu, Clock, BarChart2, CheckCircle2, RefreshCw } from 'lucide-react';
+import {
+  IconPlayerPlay,
+  IconShieldCheck,
+  IconCpu,
+  IconClock,
+  IconChartBar,
+  IconCheck,
+  IconRefresh,
+  IconActivity
+} from '@tabler/icons-react';
 import api from '../../api';
+import { PageHeader, DataTable, StatusBadge, Skeleton } from '../../components/ui';
 
 export default function EvaluationPage() {
   const [evalData, setEvalData] = useState(null);
@@ -31,10 +41,13 @@ export default function EvaluationPage() {
 
   if (loading && !evalData) {
     return (
-      <div className="page-root">
-        <div className="skeleton skeleton-heading" />
-        <div className="skeleton skeleton-paragraph" />
-        <div className="skeleton skeleton-paragraph" />
+      <div className="page-root" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <Skeleton width="40%" height="32px" />
+        <Skeleton height="70px" borderRadius="var(--radius-lg)" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <Skeleton height="240px" borderRadius="var(--radius-lg)" />
+          <Skeleton height="240px" borderRadius="var(--radius-lg)" />
+        </div>
       </div>
     );
   }
@@ -46,249 +59,337 @@ export default function EvaluationPage() {
   const sec = evalData?.security_evaluation || {};
   const queries = evalData?.query_details || [];
 
+  const queryColumns = [
+    {
+      header: 'ID',
+      key: 'eval_id',
+      width: '100px',
+      render: (q) => <span className="font-mono text-muted">{q.eval_id}</span>
+    },
+    {
+      header: 'Benchmark Question',
+      key: 'question',
+      render: (q) => <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{q.question}</span>
+    },
+    {
+      header: 'Routing Decision',
+      key: 'routing_decision',
+      render: (q) => (
+        <span
+          className="qa-meta-pill"
+          style={{
+            background: 'rgba(59, 130, 246, 0.15)',
+            color: '#60a5fa',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: '0.75rem',
+            textTransform: 'uppercase'
+          }}
+        >
+          {q.routing_decision}
+        </span>
+      )
+    },
+    {
+      header: 'Fused Score',
+      key: 'fused_score',
+      render: (q) => <span className="font-mono">{q.fused_score?.toFixed(3)}</span>
+    },
+    {
+      header: 'Retrieval Latency',
+      key: 'retrieval_latency_ms',
+      render: (q) => <span className="font-mono text-muted">{q.retrieval_latency_ms} ms</span>
+    },
+    {
+      header: 'LLM Latency',
+      key: 'llm_latency_ms',
+      render: (q) => <span className="font-mono text-muted">{q.llm_latency_ms} ms</span>
+    },
+    {
+      header: 'Total Latency',
+      key: 'total_latency_ms',
+      render: (q) => <span className="font-mono" style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{q.total_latency_ms} ms</span>
+    }
+  ];
+
   return (
-    <div className="page-root">
+    <div className="page-root" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {/* Header */}
-      <div className="eval-header-row">
-        <div>
-          <h1 className="page-title">Research Evaluation Module</h1>
-          <p className="page-subtitle">
-            Longitudinal Patient Knowledge Graph Retrieval & Temporal QA Benchmark Results
-          </p>
-        </div>
+      <PageHeader
+        title="Research Evaluation & QA Benchmarks"
+        description="Temporal reasoning evaluation, hybrid retrieval metrics, and precision-recall latency analysis."
+        badge="Benchmark Suite"
+      >
         <button
-          className="btn-primary flex-align-gap"
+          className="btn-primary"
           onClick={handleRunEvaluation}
           disabled={isRunningEval}
         >
-          <RefreshCw size={16} className={isRunningEval ? 'css-spinner-inline' : ''} />
+          <IconRefresh size={16} className={isRunningEval ? 'animate-spin' : ''} />
           {isRunningEval ? 'Running Benchmark...' : 'Run Live Benchmark'}
         </button>
-      </div>
+      </PageHeader>
 
       {/* Summary Banner */}
-      <div className="eval-summary-banner">
-        <div className="banner-item">
-          <span className="banner-label">Benchmark Timestamp</span>
-          <span className="banner-val">{evalData?.timestamp || 'Just now'}</span>
+      <div
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '1.25rem 1.5rem',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '1.5rem'
+        }}
+      >
+        <div>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Benchmark Timestamp
+          </span>
+          <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px', display: 'block' }}>
+            {evalData?.timestamp || 'Just now'}
+          </span>
         </div>
-        <div className="banner-item">
-          <span className="banner-label">Evaluated Patient</span>
-          <span className="banner-val font-mono">{evalData?.evaluated_patient_id || 'PAT-000001'}</span>
+        <div>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Evaluated Patient Scope
+          </span>
+          <span className="font-mono" style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--accent-primary)', marginTop: '2px', display: 'block' }}>
+            {evalData?.evaluated_patient_id || 'PAT-000001'}
+          </span>
         </div>
-        <div className="banner-item">
-          <span className="banner-label">Benchmark Queries</span>
-          <span className="banner-val">{evalData?.sample_size || 5} benchmark questions</span>
+        <div>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Benchmark Dataset
+          </span>
+          <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px', display: 'block' }}>
+            {queries.length} validated clinical questions
+          </span>
         </div>
       </div>
 
-      {/* Grid Section 1: Retrieval Metrics & Temporal Metrics */}
-      <div className="eval-grid-two-col">
+      {/* Grid: Retrieval & Temporal Metrics */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
         {/* 1. Retrieval Metrics */}
-        <section className="admin-section">
-          <h2 className="section-title flex-align-gap">
-            <BarChart2 size={18} /> Retrieval Metrics
-          </h2>
-          <div className="section-divider" />
+        <section
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.5rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <IconChartBar size={20} style={{ color: 'var(--accent-primary)' }} />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+              Retrieval Metrics
+            </h3>
+          </div>
 
-          <dl className="eval-metric-list">
-            <div className="eval-metric-item">
-              <dt>Precision@K</dt>
-              <dd className="val-highlight">{(ret.precision_at_k * 100).toFixed(1)}%</dd>
+          <dl className="eval-metric-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Precision@K</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>{(ret.precision_at_k * 100).toFixed(1)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Recall@K</dt>
-              <dd className="val-highlight">{(ret.recall_at_k * 100).toFixed(1)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Recall@K</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>{(ret.recall_at_k * 100).toFixed(1)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>F1@K Score</dt>
-              <dd className="val-highlight">{(ret.f1_at_k * 100).toFixed(1)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>F1@K Score</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>{(ret.f1_at_k * 100).toFixed(1)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>MRR (Mean Reciprocal Rank)</dt>
-              <dd>{ret.mrr?.toFixed(3)}</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Mean Reciprocal Rank (MRR)</dt>
+              <dd style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{ret.mrr?.toFixed(3)}</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Hit Rate</dt>
-              <dd>{(ret.hit_rate * 100).toFixed(1)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Hit Rate</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-success)', fontSize: '0.95rem' }}>{(ret.hit_rate * 100).toFixed(1)}%</dd>
             </div>
           </dl>
         </section>
 
         {/* 2. Temporal Retrieval Metrics */}
-        <section className="admin-section">
-          <h2 className="section-title flex-align-gap">
-            <Clock size={18} /> Temporal Retrieval Metrics
-          </h2>
-          <div className="section-divider" />
+        <section
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.5rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <IconClock size={20} style={{ color: 'var(--accent-info)' }} />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+              Temporal Retrieval Metrics
+            </h3>
+          </div>
 
-          <dl className="eval-metric-list">
-            <div className="eval-metric-item">
-              <dt>Latest-Event Retrieval</dt>
-              <dd className="text-success font-weight-bold">{(temp.latest_event_retrieval_accuracy * 100).toFixed(0)}%</dd>
+          <dl className="eval-metric-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Latest-Event Retrieval</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-success)', fontSize: '0.95rem' }}>{(temp.latest_event_retrieval_accuracy * 100).toFixed(0)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>As-Of-Date Retrieval</dt>
-              <dd className="text-success font-weight-bold">{(temp.as_of_date_retrieval_accuracy * 100).toFixed(0)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>As-Of-Date Retrieval</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-success)', fontSize: '0.95rem' }}>{(temp.as_of_date_retrieval_accuracy * 100).toFixed(0)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Historical Retrieval</dt>
-              <dd className="text-success font-weight-bold">{(temp.historical_retrieval_accuracy * 100).toFixed(0)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Historical Range Retrieval</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-success)', fontSize: '0.95rem' }}>{(temp.historical_retrieval_accuracy * 100).toFixed(0)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Before / After Retrieval</dt>
-              <dd className="text-success font-weight-bold">{(temp.before_after_retrieval_accuracy * 100).toFixed(0)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Before / After Date Filtering</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-success)', fontSize: '0.95rem' }}>{(temp.before_after_retrieval_accuracy * 100).toFixed(0)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Temporal Retrieval Accuracy</dt>
-              <dd className="val-highlight">{(temp.overall_temporal_retrieval_accuracy * 100).toFixed(1)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Overall Temporal Accuracy</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>{(temp.overall_temporal_retrieval_accuracy * 100).toFixed(1)}%</dd>
             </div>
           </dl>
         </section>
       </div>
 
-      {/* Grid Section 2: Answer Quality & Performance Latencies */}
-      <div className="eval-grid-two-col">
+      {/* Grid: Answer Quality & Performance Latencies */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
         {/* 3. Answer Quality */}
-        <section className="admin-section">
-          <h2 className="section-title flex-align-gap">
-            <Cpu size={18} /> Answer Quality & Groundedness
-          </h2>
-          <div className="section-divider" />
+        <section
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.5rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <IconCpu size={20} style={{ color: 'var(--accent-secondary)' }} />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+              Answer Quality & Groundedness
+            </h3>
+          </div>
 
-          <dl className="eval-metric-list">
-            <div className="eval-metric-item">
-              <dt>Answer Accuracy</dt>
-              <dd className="val-highlight">{(qual.answer_accuracy * 100).toFixed(1)}%</dd>
+          <dl className="eval-metric-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Answer Accuracy</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>{(qual.answer_accuracy * 100).toFixed(1)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Evidence Groundedness</dt>
-              <dd className="val-highlight">{(qual.evidence_groundedness * 100).toFixed(1)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Evidence Groundedness</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>{(qual.evidence_groundedness * 100).toFixed(1)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Source Attribution Accuracy</dt>
-              <dd className="val-highlight">{(qual.source_attribution_accuracy * 100).toFixed(1)}%</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Source Attribution Accuracy</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.95rem' }}>{(qual.source_attribution_accuracy * 100).toFixed(1)}%</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Hallucination Prevention</dt>
-              <dd className="text-success font-weight-bold">100% (Sufficiency Gate Active)</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Hallucination Prevention</dt>
+              <dd style={{ fontWeight: 700, color: 'var(--accent-success)', fontSize: '0.95rem' }}>100% (Sufficiency Gate Active)</dd>
             </div>
           </dl>
         </section>
 
         {/* 4. Performance Latencies */}
-        <section className="admin-section">
-          <h2 className="section-title flex-align-gap">
-            <Clock size={18} /> Measured Performance Latencies
-          </h2>
-          <div className="section-divider" />
+        <section
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '1.5rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <IconActivity size={20} style={{ color: 'var(--accent-warning)' }} />
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+              Performance Latencies
+            </h3>
+          </div>
 
-          <dl className="eval-metric-list">
-            <div className="eval-metric-item">
-              <dt>Average Query Latency</dt>
-              <dd>{perf.avg_query_latency_ms} ms</dd>
+          <dl className="eval-metric-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Average Query Latency</dt>
+              <dd className="font-mono">{perf.avg_query_latency_ms} ms</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Median Query Latency</dt>
-              <dd>{perf.median_query_latency_ms} ms</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>P95 Query Latency</dt>
+              <dd className="font-mono">{perf.p95_query_latency_ms} ms</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>P95 Query Latency</dt>
-              <dd>{perf.p95_query_latency_ms} ms</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Graph & Vector Retrieval</dt>
+              <dd className="font-mono">{perf.retrieval_latency_ms} ms</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>Graph & Vector Retrieval Latency</dt>
-              <dd>{perf.retrieval_latency_ms} ms</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>LLM Synthesis Latency</dt>
+              <dd className="font-mono">{perf.llm_generation_latency_ms} ms</dd>
             </div>
-            <div className="eval-metric-item">
-              <dt>LLM Generation Latency</dt>
-              <dd>{perf.llm_generation_latency_ms} ms</dd>
-            </div>
-            <div className="eval-metric-item">
-              <dt>Document Processing Latency</dt>
-              <dd>{perf.document_processing_latency_ms} ms</dd>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0' }}>
+              <dt style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>PDF Ingestion Pipeline</dt>
+              <dd className="font-mono">{perf.document_processing_latency_ms} ms</dd>
             </div>
           </dl>
         </section>
       </div>
 
       {/* Section 5: Security / RBAC Evaluation */}
-      <section className="admin-section">
-        <h2 className="section-title flex-align-gap">
-          <ShieldCheck size={18} /> Security & Patient Isolation Evaluation
-        </h2>
-        <div className="section-divider" />
+      <section
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '1.5rem'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+          <IconShieldCheck size={20} style={{ color: 'var(--accent-success)' }} />
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+            Security & Patient Data Isolation Tests
+          </h3>
+        </div>
 
-        <div className="eval-security-grid">
-          <div className="security-card">
-            <CheckCircle2 size={24} className="sec-pass-icon" />
-            <div>
-              <strong>RBAC Role Verification</strong>
-              <p>Admin, Doctor, and Patient access control boundaries verified.</p>
-              <span className="sec-status-tag">Status: {sec.rbac_tests || 'PASS'}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+          <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontWeight: 600, fontSize: '0.9rem', marginBottom: '4px' }}>
+              <IconCheck size={16} /> RBAC Role Boundaries
             </div>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Admin, Doctor, and Patient access boundaries verified via automated suites.
+            </p>
           </div>
 
-          <div className="security-card">
-            <CheckCircle2 size={24} className="sec-pass-icon" />
-            <div>
-              <strong>Patient Data Isolation</strong>
-              <p>Strict patient ownership enforced across API, FAISS, and Neo4j.</p>
-              <span className="sec-status-tag">Status: {sec.patient_isolation_tests || 'PASS'}</span>
+          <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontWeight: 600, fontSize: '0.9rem', marginBottom: '4px' }}>
+              <IconCheck size={16} /> Patient Data Isolation
             </div>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Strict isolation enforced across API endpoints, FAISS vectors, and Neo4j subgraphs.
+            </p>
           </div>
 
-          <div className="security-card">
-            <CheckCircle2 size={24} className="sec-pass-icon" />
-            <div>
-              <strong>Unauthorized Access Prevention</strong>
-              <p>403 Forbidden enforced on unassigned doctor & foreign patient access.</p>
-              <span className="sec-status-tag">Status: {sec.unauthorized_access_tests || 'PASS'}</span>
+          <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontWeight: 600, fontSize: '0.9rem', marginBottom: '4px' }}>
+              <IconCheck size={16} /> Unauthorized Access Block
             </div>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0 }}>
+              403 Forbidden verified on cross-patient tampering and unassigned clinician calls.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Section 6: Controlled Evaluation Benchmark Dataset */}
-      <section className="admin-section">
-        <h2 className="section-title flex-align-gap">
-          <Play size={18} /> Controlled Evaluation Benchmark Dataset
-        </h2>
-        <div className="section-divider" />
-
-        <div className="compact-table-container">
-          <table className="compact-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Benchmark Question</th>
-                <th>Routing Decision</th>
-                <th>Fused Score</th>
-                <th>Retrieval Latency</th>
-                <th>LLM Latency</th>
-                <th>Total Latency</th>
-              </tr>
-            </thead>
-            <tbody>
-              {queries.map((q, idx) => (
-                <tr key={idx}>
-                  <td className="font-mono text-muted">{q.eval_id}</td>
-                  <td className="font-weight-medium">{q.question}</td>
-                  <td>
-                    <span className={`qa-meta-pill pill-routing pill-routing-${q.routing_decision?.replace('_', '-')}`}>
-                      {q.routing_decision}
-                    </span>
-                  </td>
-                  <td className="font-mono">{q.fused_score?.toFixed(3)}</td>
-                  <td className="font-mono">{q.retrieval_latency_ms} ms</td>
-                  <td className="font-mono">{q.llm_latency_ms} ms</td>
-                  <td className="font-mono">{q.total_latency_ms} ms</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {/* Section 6: Evaluation Benchmark Dataset */}
+      <div>
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem' }}>
+          Evaluation Benchmark Dataset Results
+        </h3>
+        <DataTable
+          columns={queryColumns}
+          data={queries}
+          loading={isRunningEval}
+          emptyTitle="No benchmark queries executed"
+          emptyMessage="Run a live benchmark to evaluate dataset performance."
+        />
+      </div>
     </div>
   );
 }

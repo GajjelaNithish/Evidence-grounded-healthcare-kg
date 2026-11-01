@@ -120,6 +120,46 @@ export default function QA({ patientId }) {
             </button>
           </div>
         </form>
+
+        {/* Quick Clinical Prompts */}
+        <div style={{ marginTop: '0.85rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {[
+              'Current active medications & dosages',
+              'Timeline of diagnoses & chronic conditions',
+              'Recent laboratory & investigation findings',
+              'Hospital admissions & discharge summary'
+            ].map((promptText, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setQuestion(promptText)}
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)',
+                  borderRadius: 'var(--radius-full)',
+                  padding: '4px 12px',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                  e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                  e.currentTarget.style.background = 'var(--bg-card-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                  e.currentTarget.style.background = 'var(--bg-card)';
+                }}
+              >
+                {promptText}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Active Conversation Turn */}

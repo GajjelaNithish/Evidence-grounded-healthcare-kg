@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { UserCheck, UserPlus, Trash2, Calendar, Shield, AlertCircle } from 'lucide-react';
+import {
+  IconUserCheck,
+  IconUserPlus,
+  IconTrash,
+  IconCalendar,
+  IconShield,
+  IconAlertCircle,
+  IconX
+} from '@tabler/icons-react';
 import api from '../../api';
+import { PageHeader, DataTable, StatusBadge } from '../../components/ui';
 
 export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState([]);
@@ -48,31 +57,114 @@ export default function AssignmentsPage() {
     ? assignments
     : assignments.filter((a) => String(a.doctor_id) === String(selectedDoctorId));
 
+  const columns = [
+    {
+      header: 'Assigned Clinician',
+      key: 'doctor_username',
+      render: (a) => (
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+          Dr. {a.doctor_username || `Doctor ${a.doctor_id}`}
+        </span>
+      )
+    },
+    {
+      header: 'Patient Identifier',
+      key: 'clinical_patient_id',
+      render: (a) => (
+        <span className="font-mono" style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>
+          {a.clinical_patient_id}
+        </span>
+      )
+    },
+    {
+      header: 'Assignment Status',
+      key: 'status',
+      render: (a) => <StatusBadge status={a.status || 'active'} />
+    },
+    {
+      header: 'Clinical Reason',
+      key: 'assignment_reason',
+      render: (a) => (
+        <span style={{ color: 'var(--text-secondary)' }}>
+          {a.assignment_reason || 'Primary Care Assignment'}
+        </span>
+      )
+    },
+    {
+      header: 'Assigned Date',
+      key: 'assigned_at',
+      render: (a) => (
+        <span className="font-mono" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          {a.assigned_at ? new Date(a.assigned_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Active'}
+        </span>
+      )
+    },
+    {
+      header: 'Actions',
+      key: 'actions',
+      align: 'right',
+      render: (a) => (
+        <button
+          type="button"
+          onClick={() => handleDelete(a.id)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: 'transparent',
+            border: 'none',
+            color: '#f87171',
+            cursor: 'pointer',
+            fontSize: '0.82rem',
+            padding: '4px 8px',
+            borderRadius: 'var(--radius-sm)'
+          }}
+          title="Revoke access"
+        >
+          <IconTrash size={14} /> Revoke
+        </button>
+      )
+    }
+  ];
+
   return (
     <div className="page-root">
       {/* Header */}
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-title">Doctor-Patient Assignments</h1>
-          <p className="page-subtitle">Admin-controlled RBAC assignment workflow for patient data access</p>
-        </div>
+      <PageHeader
+        title="Doctor-Patient Assignments"
+        description="Admin-controlled RBAC access control assigning physicians to patient clinical records."
+        badge={`${filteredAssignments.length} Assignments`}
+      >
         <button
           type="button"
           onClick={() => setShowAssignModal(true)}
-          className="btn-primary-action flex-align-gap"
+          className="btn-primary"
         >
-          <UserPlus size={16} /> Assign Patient
+          <IconUserPlus size={16} /> Assign Patient to Doctor
         </button>
-      </div>
+      </PageHeader>
 
       {/* Filter Bar */}
-      <div className="admin-filters-bar">
-        <div className="filter-select-group">
-          <label className="filter-select-label">Filter by Doctor:</label>
+      <div
+        style={{
+          display: 'flex',
+          gap: '1rem',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          marginBottom: '1.25rem',
+          padding: '0.75rem 1rem',
+          background: 'var(--bg-card)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-subtle)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Filter by Doctor:</label>
           <select
-            className="filter-select-dropdown"
+            className="input-field"
             value={selectedDoctorId}
             onChange={(e) => setSelectedDoctorId(e.target.value)}
+            style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
           >
             <option value="ALL">All Doctors ({doctors.length})</option>
             {doctors.map((d) => (
@@ -84,72 +176,22 @@ export default function AssignmentsPage() {
         </div>
       </div>
 
-      <div className="section-divider" />
-
-      {/* Assignments Table */}
-      {loading ? (
-        <div className="skeleton-table">
-          <div className="skeleton skeleton-row-left" />
-          <div className="skeleton skeleton-row-left" />
-        </div>
-      ) : filteredAssignments.length === 0 ? (
-        <div className="empty-state-container">
-          <UserCheck size={32} className="text-muted" style={{ marginBottom: '8px' }} />
-          <p className="empty-state-text">No active doctor-patient assignments found.</p>
-        </div>
-      ) : (
-        <div className="compact-table-container">
-          <table className="compact-table">
-            <thead>
-              <tr>
-                <th>Doctor</th>
-                <th>Patient ID</th>
-                <th>Status</th>
-                <th>Assignment Reason</th>
-                <th>Assigned Date</th>
-                <th className="table-action-col">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAssignments.map((a) => (
-                <tr key={a.id}>
-                  <td className="font-semibold">Dr. {a.doctor_username || `Doctor ${a.doctor_id}`}</td>
-                  <td>
-                    <span className="font-mono text-primary font-weight-bold">{a.clinical_patient_id}</span>
-                  </td>
-                  <td>
-                    <span className={`qa-meta-pill ${a.status === 'active' ? 'status-active-text' : 'status-inactive-text'}`}>
-                      {a.status || 'active'}
-                    </span>
-                  </td>
-                  <td className="text-secondary">{a.assignment_reason || 'Primary Care Assignment'}</td>
-                  <td className="text-muted font-mono">
-                    {a.assigned_at ? new Date(a.assigned_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Active'}
-                  </td>
-                  <td className="table-action-col">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(a.id)}
-                      className="btn-text-danger flex-align-gap"
-                    >
-                      <Trash2 size={14} /> Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Assignments DataTable */}
+      <DataTable
+        columns={columns}
+        data={filteredAssignments}
+        loading={loading}
+        emptyTitle="No doctor-patient assignments"
+        emptyMessage="There are currently no active doctor-patient access assignments matching this view."
+      />
 
       {/* Assign Patient Modal */}
       {showAssignModal && (
-        <AssignPatientModal
+        <AssignModal
           doctors={doctors}
           patients={patients}
-          defaultDoctorId={selectedDoctorId !== 'ALL' ? selectedDoctorId : ''}
           onClose={() => setShowAssignModal(false)}
-          onCreated={() => {
+          onAssigned={() => {
             setShowAssignModal(false);
             fetchData();
           }}
@@ -159,17 +201,16 @@ export default function AssignmentsPage() {
   );
 }
 
-function AssignPatientModal({ doctors, patients, defaultDoctorId, onClose, onCreated }) {
-  const [doctorId, setDoctorId] = useState(defaultDoctorId || (doctors[0]?.id ? String(doctors[0].id) : ''));
+function AssignModal({ doctors, patients, onClose, onAssigned }) {
+  const [doctorId, setDoctorId] = useState(doctors[0]?.id || '');
   const [patientId, setPatientId] = useState(patients[0]?.patient_id || '');
-  const [status, setStatus] = useState('active');
-  const [reason, setReason] = useState('Primary Care Assignment');
+  const [reason, setReason] = useState('Attending Physician Care');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!doctorId || !patientId.trim()) return;
+    if (!doctorId || !patientId) return;
 
     setSubmitting(true);
     setError(null);
@@ -177,13 +218,12 @@ function AssignPatientModal({ doctors, patients, defaultDoctorId, onClose, onCre
     try {
       await api.post('/admin/assignments', {
         doctor_id: doctorId,
-        clinical_patient_id: patientId.trim(),
-        status,
+        clinical_patient_id: patientId,
         assignment_reason: reason.trim() || undefined,
       });
-      onCreated();
+      onAssigned();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create doctor-patient assignment');
+      setError(err.response?.data?.detail || 'Failed to create assignment');
     } finally {
       setSubmitting(false);
     }
@@ -192,22 +232,32 @@ function AssignPatientModal({ doctors, patients, defaultDoctorId, onClose, onCre
   return (
     <div className="modal-backdrop">
       <div className="modal-card">
-        <h3 className="modal-title">Assign Patient to Doctor</h3>
-        <p className="page-subtitle" style={{ marginTop: '-8px', marginBottom: '16px' }}>
-          Grant RBAC authorization for a doctor to access a specific patient's records
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 className="modal-title" style={{ margin: 0 }}>Assign Patient to Doctor</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+          >
+            <IconX size={18} />
+          </button>
+        </div>
+
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '-4px', marginBottom: '16px' }}>
+          Grants an attending clinician access to the selected patient's longitudinal knowledge graph dossier.
         </p>
 
-        <form onSubmit={handleSubmit}>
-          {/* Doctor Select */}
-          <div className="form-field-block">
-            <label className="login-field-label">1. Select Doctor</label>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Select Doctor *
+            </label>
             <select
-              className="filter-select-dropdown full-width"
+              className="input-field"
               value={doctorId}
               onChange={(e) => setDoctorId(e.target.value)}
               required
             >
-              <option value="">Choose a doctor...</option>
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>
                   Dr. {d.username} ({d.email})
@@ -216,72 +266,60 @@ function AssignPatientModal({ doctors, patients, defaultDoctorId, onClose, onCre
             </select>
           </div>
 
-          {/* Patient Select or Input */}
-          <div className="form-field-block">
-            <label className="login-field-label">2. Select Patient</label>
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Patient Identifier *
+            </label>
             {patients.length > 0 ? (
               <select
-                className="filter-select-dropdown full-width"
+                className="input-field"
                 value={patientId}
                 onChange={(e) => setPatientId(e.target.value)}
                 required
               >
-                <option value="">Choose a patient...</option>
                 {patients.map((p) => (
                   <option key={p.patient_id} value={p.patient_id}>
-                    {p.patient_id} — {p.name || `Patient #${p.patient_id}`} ({p.gender || 'N/A'}, Age {p.age || 'N/A'})
+                    Patient #{p.patient_id} {p.age ? `(Age ${p.age}, ${p.gender})` : ''}
                   </option>
                 ))}
               </select>
             ) : (
               <input
-                className="login-field-input"
+                className="input-field"
                 type="text"
-                required
-                placeholder="e.g. PAT-000001"
+                placeholder="e.g. 1 or PAT-000001"
                 value={patientId}
                 onChange={(e) => setPatientId(e.target.value)}
+                required
               />
             )}
           </div>
 
-          {/* Status */}
-          <div className="form-field-block">
-            <label className="login-field-label">3. Assignment Status</label>
-            <select
-              className="filter-select-dropdown full-width"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="active">Active Access Granted</option>
-              <option value="inactive">Inactive / Suspended</option>
-            </select>
-          </div>
-
-          {/* Reason */}
-          <div className="form-field-block">
-            <label className="login-field-label">4. Clinical Assignment Reason (Optional)</label>
+          <div>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Assignment Reason
+            </label>
             <input
-              className="login-field-input"
+              className="input-field"
               type="text"
-              placeholder="e.g. Primary Care, Specialist Consultation, Inpatient Ward"
+              placeholder="e.g. Inpatient Admission, Primary Consultation"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
           </div>
 
           {error && (
-            <div className="login-inline-error modal-error flex-align-gap">
-              <AlertCircle size={16} /> {error}
+            <div style={{ color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconAlertCircle size={16} /> {error}
             </div>
           )}
 
-          <div className="modal-actions-row">
-            <button type="button" className="btn-secondary-action" onClick={onClose} disabled={submitting}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary-action" disabled={submitting || !doctorId || !patientId.trim()}>
-              {submitting ? 'Storing Assignment…' : 'Confirm Assignment'}
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Assigning…' : 'Create Assignment'}
             </button>
           </div>
         </form>

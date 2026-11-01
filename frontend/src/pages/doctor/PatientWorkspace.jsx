@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { PlusCircle, User, Calendar, MapPin, ArrowLeft } from 'lucide-react';
+import {
+  IconPlus,
+  IconUser,
+  IconCalendar,
+  IconMapPin,
+  IconArrowLeft,
+  IconLayoutDashboard,
+  IconClock,
+  IconFileText,
+  IconNetwork,
+  IconMessage2
+} from '@tabler/icons-react';
 import { usePatientWorkspace } from '../../hooks/usePatientWorkspace';
 
 // Workspace Tabs
@@ -10,6 +21,7 @@ import Documents from './workspace/Documents';
 import Graph from './workspace/Graph';
 import QA from './workspace/QA';
 import AddEncounterModal from './workspace/AddEncounterModal';
+import { Skeleton } from '../../components/ui';
 
 export default function PatientWorkspace() {
   const { patientId } = useParams();
@@ -26,87 +38,187 @@ export default function PatientWorkspace() {
     refetch,
   } = usePatientWorkspace(patientId);
 
-  const patientName = summary?.name || `Patient ${patientId}`;
+  const patientName = summary?.name || `Patient #${patientId}`;
   const ageStr = summary?.age && summary.age !== 'N/A' ? `${summary.age} yrs` : null;
   const genderStr = summary?.gender && summary.gender !== 'N/A' ? summary.gender : null;
   const stateStr = summary?.state && summary.state !== 'N/A' ? summary.state : null;
 
+  const tabs = [
+    { id: 'Overview', label: 'Overview', icon: IconLayoutDashboard },
+    { id: 'Timeline', label: 'Timeline', icon: IconClock, count: timeline?.length },
+    { id: 'Documents', label: 'Documents', icon: IconFileText, count: documents?.length },
+    { id: 'Graph', label: 'Knowledge Graph', icon: IconNetwork },
+    { id: 'Q&A', label: 'Clinical Q&A', icon: IconMessage2 },
+  ];
+
   return (
-    <div className="workspace-page">
+    <div className="workspace-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Breadcrumb Navigation Trail */}
-      <div className="workspace-breadcrumb-bar flex-align-gap" style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
-        <Link to="/doctor/patients" className="back-link flex-align-gap" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
-          <ArrowLeft size={14} /> Patients
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+        <Link to="/doctor/patients" style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <IconArrowLeft size={15} /> Assigned Patients
         </Link>
-        <span style={{ opacity: 0.5 }}>/</span>
-        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{patientId}</span>
-        <span style={{ opacity: 0.5 }}>/</span>
-        <span className="text-accent" style={{ fontWeight: 500 }}>{activeTab}</span>
+        <span style={{ opacity: 0.4 }}>/</span>
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Patient #{patientId}</span>
+        <span style={{ opacity: 0.4 }}>/</span>
+        <span style={{ fontWeight: 500, color: 'var(--accent-primary)' }}>{activeTab}</span>
       </div>
 
-      {/* Compact Patient Profile Header */}
-      <header className="workspace-profile-header-card">
-        <div className="profile-header-main">
-          <div className="profile-avatar-circle">
-            <User size={24} />
+      {/* Patient Profile Dossier Banner */}
+      <header
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '1.25rem 1.5rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          boxShadow: 'var(--shadow-sm)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div
+            style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(139, 92, 246, 0.25))',
+              border: '1px solid rgba(59, 130, 246, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--accent-primary)',
+              fontWeight: 700,
+              fontSize: '1.1rem'
+            }}
+          >
+            P{patientId.toString().slice(-2)}
           </div>
-          <div className="profile-info-block">
-            <div className="profile-title-row">
-              <h1 className="profile-patient-name">{patientName}</h1>
-              <span className="profile-id-tag">{patientId}</span>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
+                {patientName}
+              </h1>
+              <span
+                className="font-mono"
+                style={{
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  color: 'var(--accent-primary)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.75rem',
+                  fontWeight: 600
+                }}
+              >
+                PID: {patientId}
+              </span>
             </div>
-            <div className="profile-meta-row">
-              {genderStr && <span className="profile-meta-item">{genderStr}</span>}
-              {ageStr && <span className="profile-meta-item">• {ageStr}</span>}
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {genderStr && <span>{genderStr}</span>}
+              {ageStr && <span>• {ageStr}</span>}
               {stateStr && (
-                <span className="profile-meta-item flex-align-gap" style={{ gap: '4px' }}>
-                  • <MapPin size={12} /> {stateStr}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                  • <IconMapPin size={13} /> {stateStr}
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Obvious "+ Add Clinical Visit" Doctor Action */}
-        <div className="profile-header-actions">
+        {/* Action Button: Add Clinical Visit */}
+        <div>
           <button
             type="button"
-            className="btn-primary-action flex-align-gap"
+            className="btn-primary"
             onClick={() => setShowAddEncounter(true)}
+            id="add-visit-btn"
           >
-            <PlusCircle size={16} /> Add Clinical Visit
+            <IconPlus size={16} /> Record Clinical Visit
           </button>
         </div>
       </header>
 
-      <div className="divider-line" />
-
-      {/* Tab Navigation */}
-      <nav className="workspace-tabs-row" aria-label="Patient workspace tabs">
-        {['Overview', 'Timeline', 'Documents', 'Graph', 'Q&A'].map((tab) => (
-          <button
-            key={tab}
-            className={`workspace-tab-item ${activeTab === tab ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab)}
-            type="button"
-          >
-            {tab}
-          </button>
-        ))}
+      {/* Tab Navigation Strip */}
+      <nav
+        aria-label="Patient workspace tabs"
+        style={{
+          display: 'flex',
+          gap: '0.5rem',
+          borderBottom: '1px solid var(--border-subtle)',
+          paddingBottom: '0.5rem',
+          overflowX: 'auto'
+        }}
+      >
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              type="button"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.55rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.85rem',
+                fontWeight: isActive ? 600 : 500,
+                color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                background: isActive ? 'var(--bg-card)' : 'transparent',
+                border: isActive ? '1px solid var(--border-default)' : '1px solid transparent',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Icon size={16} style={{ color: isActive ? 'var(--accent-primary)' : 'inherit' }} />
+              <span>{tab.label}</span>
+              {typeof tab.count === 'number' && (
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '1px 6px',
+                    borderRadius: 'var(--radius-full)',
+                    background: isActive ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                    color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)'
+                  }}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Workspace Content Area */}
       <main className="workspace-main-content">
         {loading && !summary ? (
-          <div className="workspace-skeleton-body">
-            <div className="skeleton skeleton-heading" />
-            <div className="skeleton skeleton-paragraph" />
-            <div className="skeleton skeleton-paragraph" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem 0' }}>
+            <Skeleton height="32px" width="30%" />
+            <Skeleton height="140px" borderRadius="var(--radius-lg)" />
+            <Skeleton height="180px" borderRadius="var(--radius-lg)" />
           </div>
         ) : error && !summary ? (
-          <div className="workspace-error-panel">
-            <p className="error-message-text">Could not load patient records. Check authorization or network.</p>
-            <button type="button" onClick={refetch} className="btn-secondary-action">
+          <div
+            style={{
+              padding: '2rem',
+              textAlign: 'center',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-lg)'
+            }}
+          >
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              Could not load patient records. Check network connectivity or user authorization.
+            </p>
+            <button type="button" onClick={refetch} className="btn-secondary">
               Retry
             </button>
           </div>

@@ -1086,11 +1086,14 @@ input, select, textarea {
 
 .modal-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
   background-color: var(--bg-card);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
 }
 
 .modal-title {
@@ -2438,6 +2441,14 @@ input, select, textarea {
   gap: var(--space-md);
 }
 
+@media (max-width: 640px) {
+  .form-row-two-col,
+  .form-row-three-col {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
 /* ============================================================
    Milestone 10: Knowledge Graph UI Styles
    ============================================================ */
@@ -2827,6 +2838,235 @@ input, select, textarea {
   background: rgba(239, 68, 68, 0.1);
   border-color: #ef4444;
 }
+
+/* ============================================================
+   Toast System
+   ============================================================ */
+.toast-container {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: none;
+  max-width: 420px;
+  width: calc(100% - 2.5rem);
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.2s ease;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.toast-success {
+  background: rgba(6, 78, 59, 0.95);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #ecfdf5;
+}
+
+.toast-error {
+  background: rgba(127, 29, 29, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fef2f2;
+}
+
+.toast-info {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #f0f9ff;
+}
+
+/* ============================================================
+   Responsive Layout & Sidebar System
+   ============================================================ */
+.layout-root {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  position: relative;
+}
+
+.layout-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 240px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 100;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.layout-main-area {
+  margin-left: 240px;
+  min-height: 100vh;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 240px);
+  transition: margin-left 0.25s ease, width 0.25s ease;
+}
+
+.layout-content-wrapper {
+  padding: 1.75rem 2rem;
+  flex: 1;
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.app-top-header {
+  height: 60px;
+  padding: 0 2rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-menu-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-menu-toggle:hover {
+  background: var(--bg-card);
+}
+
+@media (max-width: 900px) {
+  .layout-sidebar {
+    transform: translateX(-100%);
+  }
+  .layout-sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+  }
+  .layout-main-area {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+  .mobile-menu-toggle {
+    display: flex !important;
+  }
+  .app-top-header {
+    padding: 0 1rem;
+  }
+  .layout-content-wrapper {
+    padding: 1.25rem 1rem !important;
+  }
+}
+
+/* ============================================================
+   Standard SaaS Button & Form Tokens
+   ============================================================ */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.15rem;
+  background: var(--accent-primary);
+  color: #ffffff;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.15rem;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #ffffff;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-field:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.input-field::placeholder {
+  color: var(--text-muted);
+}
+
 
 
 

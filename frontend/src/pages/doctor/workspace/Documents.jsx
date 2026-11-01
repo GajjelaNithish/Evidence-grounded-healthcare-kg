@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { IconFileText, IconUpload, IconCheck, IconAlertCircle } from '@tabler/icons-react';
 import api from '../../../api';
+import { StatusBadge, EmptyState } from '../../../components/ui';
 
 export default function Documents({ patientId, documents, onRefetch }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -124,11 +126,20 @@ export default function Documents({ patientId, documents, onRefetch }) {
 
       {/* Document rows */}
       {allDocs.length === 0 ? (
-        <div className="empty-state-container" style={{ marginTop: '16px' }}>
-          <p className="empty-state-text">
-            No documents uploaded for this patient. Use Upload to add clinical notes or discharge summaries.
-          </p>
-        </div>
+        <EmptyState
+          title="No documents uploaded"
+          description="No clinical records or discharge summaries have been uploaded for this patient yet."
+          icon={IconFileText}
+          action={
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="btn-primary"
+            >
+              <IconUpload size={16} /> Upload First Document
+            </button>
+          }
+        />
       ) : (
         <div className="documents-list-rows" style={{ display: 'flex', flexDirection: 'column' }}>
           {allDocs.map((doc, index) => {
@@ -181,17 +192,9 @@ export default function Documents({ patientId, documents, onRefetch }) {
                   </div>
                 </div>
 
-                <div className="document-row-right" style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div className="document-row-status" style={{ fontSize: 'var(--font-sm)', fontWeight: 'var(--weight-medium)' }}>
-                    {isCompleted && <span style={{ color: 'var(--color-success, #22c55e)' }}>Processed</span>}
-                    {isProcessing && (
-                      <span style={{ color: 'var(--accent-primary, #3b82f6)' }}>
-                        Processing…
-                      </span>
-                    )}
-                    {isFailed && <span style={{ color: 'var(--color-danger, #ef4444)' }}>Failed</span>}
-                  </div>
-                  <div className="document-row-date" style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>
+                <div className="document-row-right" style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                  <StatusBadge status={doc.status || 'completed'} />
+                  <div className="document-row-date" style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
                     {uploadDate ? new Date(uploadDate).toLocaleDateString() : 'Recent'}
                   </div>
                 </div>
