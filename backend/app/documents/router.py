@@ -53,12 +53,26 @@ async def upload_document(
 
     # Read content and check file size
     content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty."
+        )
+
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     if len(content) > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File exceeds maximum allowed size of {settings.MAX_UPLOAD_SIZE_MB}MB"
         )
+
+    # Magic-byte file validation
+    if ext == ".pdf":
+        if not content.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File content does not match valid PDF header signatures."
+            )
 
     job_id = uuid.uuid4()
     safe_filename = os.path.basename(file.filename).replace(" ", "_")
@@ -98,13 +112,18 @@ async def upload_document(
     await db.commit()
 
     # Dispatch background document processing task
-    import asyncio
-    from app.workers.ingestion_tasks import _process_document_async
-    asyncio.create_task(_process_document_async(str(job_id)))
+    celery_dispatched = False
     try:
-        process_clinical_document.delay(str(job_id))
-    except Exception:
-        pass
+        task_res = process_clinical_document.delay(str(job_id))
+        if task_res:
+            celery_dispatched = True
+    except Exception as e:
+        logger.warning(f"Celery dispatch failed ({e}). Falling back to asyncio background task.")
+
+    if not celery_dispatched:
+        import asyncio
+        from app.workers.ingestion_tasks import _process_document_async
+        asyncio.create_task(_process_document_async(str(job_id)))
 
     return {
         "job_id": str(job_id),

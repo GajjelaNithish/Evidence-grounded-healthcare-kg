@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, AlertCircle, Sparkles, MessageSquare, Clock, FileText, Database } from 'lucide-react';
 import api from '../../../api';
+import { FormattedAnswer } from '../../../components/ui';
 
 export default function QA({ patientId }) {
   const [question, setQuestion] = useState('');
@@ -69,59 +70,7 @@ export default function QA({ patientId }) {
   // Format answer text into clean paragraphs/bullets
   const renderFormattedAnswer = (rawAnswer) => {
     if (!rawAnswer) return null;
-
-    if (rawAnswer.startsWith('Clinical synthesis error:')) {
-      return (
-        <div className="qa-error-notice">
-          <AlertCircle size={18} className="notice-icon" />
-          <span>Unable to generate an answer from the available evidence. Please review retrieved sources below.</span>
-        </div>
-      );
-    }
-
-    if (rawAnswer.startsWith('INSUFFICIENT_EVIDENCE:') || rawAnswer.includes('Insufficient Evidence Notice')) {
-      return (
-        <div className="qa-insufficient-notice">
-          <AlertCircle size={18} className="notice-icon" />
-          <div className="notice-text">
-            <strong>Insufficient Clinical Evidence</strong>
-            <p>There is insufficient evidence in this patient's record to answer that question without speculation.</p>
-            <p className="notice-subtext">Try adding a new clinical encounter or uploading relevant medical documents for Patient {patientId}.</p>
-          </div>
-        </div>
-      );
-    }
-
-    // Split answer into bullet lines or paragraphs for clean visual hierarchy
-    const lines = rawAnswer.split('\n').filter((l) => l.trim() !== '');
-
-    return (
-      <div className="qa-answer-formatted">
-        {lines.map((line, idx) => {
-          if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
-            return (
-              <div key={idx} className="qa-answer-bullet">
-                <span className="bullet-dot">•</span>
-                <span>{line.replace(/^[-•]\s*/, '')}</span>
-              </div>
-            );
-          }
-          if (line.toLowerCase().startsWith('reason:') || line.toLowerCase().startsWith('reason / context:')) {
-            return (
-              <div key={idx} className="qa-answer-reason-box">
-                <span className="reason-label">Reasoning:</span>
-                <span className="reason-text">{line.replace(/^reason\s*(\/\s*context)?:\s*/i, '')}</span>
-              </div>
-            );
-          }
-          return (
-            <p key={idx} className="qa-answer-paragraph">
-              {line}
-            </p>
-          );
-        })}
-      </div>
-    );
+    return <FormattedAnswer text={rawAnswer} />;
   };
 
   const graphEv = activeTurn?.response?.graph_evidence || [];

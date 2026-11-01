@@ -50,22 +50,44 @@ def add_chunks_to_patient_index(
 ):
     """
     Adds embeddings and chunk metadata to a patient's FAISS index.
+    Idempotent: Replaces any pre-existing chunks for the same source_filename to prevent duplicates.
     Embeddings MUST be normalized L2 vectors.
     """
     if len(chunks) == 0 or embeddings.shape[0] == 0:
         return
 
     index, metadata = load_patient_index(patient_id)
-
-    if index is None:
-        index = faiss.IndexFlatIP(EMBEDDING_DIM)
-        metadata = []
-
-    # Ensure float32 format
     embeddings_np = np.ascontiguousarray(embeddings.astype(np.float32))
 
-    index.add(embeddings_np)
-    metadata.extend(chunks)
+    incoming_filenames = {c.get("source_filename") for c in chunks if c.get("source_filename")}
+
+    if index is None or index.ntotal == 0:
+        index = faiss.IndexFlatIP(EMBEDDING_DIM)
+        index.add(embeddings_np)
+        metadata = list(chunks)
+    else:
+        # Check if any incoming filenames already exist in index
+        has_overlap = any(m.get("source_filename") in incoming_filenames for m in metadata)
+        if has_overlap:
+            kept_meta = []
+            kept_indices = []
+            for i, m in enumerate(metadata):
+                if m.get("source_filename") not in incoming_filenames:
+                    kept_meta.append(m)
+                    kept_indices.append(i)
+
+            new_index = faiss.IndexFlatIP(EMBEDDING_DIM)
+            if kept_indices:
+                kept_vecs = np.array([index.reconstruct(i) for i in kept_indices], dtype=np.float32)
+                new_index.add(np.ascontiguousarray(kept_vecs))
+
+            new_index.add(embeddings_np)
+            kept_meta.extend(chunks)
+            index = new_index
+            metadata = kept_meta
+        else:
+            index.add(embeddings_np)
+            metadata.extend(chunks)
 
     save_patient_index(patient_id, index, metadata)
     logger.info(f"Indexed {len(chunks)} chunks for patient {patient_id}. Total: {index.ntotal}")

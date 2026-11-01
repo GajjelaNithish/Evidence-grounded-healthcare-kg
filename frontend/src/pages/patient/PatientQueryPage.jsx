@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
+import { FormattedAnswer } from '../../components/ui';
 
 export default function PatientQueryPage() {
   const { user } = useAuth();
@@ -94,7 +95,7 @@ export default function PatientQueryPage() {
             <div className="section-divider" />
 
             <div className="qa-answer-text">
-              {displayAnswer}
+              <FormattedAnswer text={displayAnswer} />
             </div>
           </section>
 

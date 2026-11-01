@@ -1,3 +1,4 @@
+import re
 import logging
 from typing import List, Dict, Any, Tuple, Optional
 from app.config import settings
@@ -8,6 +9,22 @@ from app.query.temporal import extract_temporal_filter
 from app.query.schemas import DocumentEvidence, GraphEvidence
 
 logger = logging.getLogger(__name__)
+
+MEDICATION_KEYWORDS = {"medication", "medications", "drug", "drugs", "prescribed", "prescription", "pharmacy", "medicine", "medicines", "pill", "pills", "dose", "dosage"}
+CONDITION_KEYWORDS = {"condition", "conditions", "diagnosis", "diagnoses", "disease", "diseases", "illness", "disorder", "syndrome"}
+TREATMENT_KEYWORDS = {"treatment", "treatments", "procedure", "procedures", "surgery", "operation", "therapy", "intervention", "pci", "stent", "angioplasty"}
+ADMISSION_KEYWORDS = {"admission", "admitted", "hospital", "stay", "discharge", "discharged", "readmission", "length of stay"}
+LAB_KEYWORDS = {"lab", "labs", "laboratory", "test", "tests", "investigation", "investigations", "troponin", "blood sugar", "creatinine", "ecg", "echo", "hba1c", "cholesterol", "platelets", "wbc", "cbc", "vitals", "bp"}
+PROCEDURE_KEYWORDS = {"procedure", "procedures", "surgery", "operation", "intervention", "pci", "stent", "angioplasty", "biopsy"}
+
+def _contains_kw(text: str, keywords: set) -> bool:
+    if not text:
+        return False
+    t_lower = text.lower()
+    for kw in keywords:
+        if re.search(r"\b" + re.escape(kw) + r"\b", t_lower):
+            return True
+    return False
 
 def retrieve_graph_evidence(patient_id: str, query: str, temporal_clause: Optional[str]) -> List[GraphEvidence]:
     """Retrieves structured graph facts for the patient with enhanced temporal filtering."""
@@ -20,10 +37,12 @@ def retrieve_graph_evidence(patient_id: str, query: str, temporal_clause: Option
     OPTIONAL MATCH (p)-[r2:RECEIVED_TREATMENT]->(t:Treatment)
     OPTIONAL MATCH (p)-[:HAD_ADMISSION]->(ae:AdmissionEvent)
     OPTIONAL MATCH (p)-[:HAD_ENCOUNTER]->(e:Encounter)
+    OPTIONAL MATCH (p)-[r3:HAD_OBSERVATION]->(o:Observation)
     RETURN p, collect(DISTINCT {c: c, r: r1}) AS conditions,
               collect(DISTINCT {t: t, r: r2}) AS treatments,
               collect(DISTINCT ae) AS admissions,
-              collect(DISTINCT e) AS encounters
+              collect(DISTINCT e) AS encounters,
+              collect(DISTINCT {o: o, r: r3}) AS observations
     """
 
     try:
@@ -67,7 +86,9 @@ def retrieve_graph_evidence(patient_id: str, query: str, temporal_clause: Option
                         relationship="RECEIVED_TREATMENT",
                         details={
                             "normalized_name": t.get("normalized_name"),
-                            "treatment_type": t.get("treatment_type", "treatment")
+                            "treatment_type": t.get("treatment_type", "treatment"),
+                            "dosage": t.get("dosage") or r.get("dosage"),
+                            "frequency": t.get("frequency") or r.get("frequency")
                         },
                         valid_from=str(v_from) if v_from else None,
                         valid_to=str(v_to) if v_to else None,
@@ -119,6 +140,34 @@ def retrieve_graph_evidence(patient_id: str, query: str, temporal_clause: Option
                         confidence=1.0,
                         score=1.0
                     ))
+
+            # Observations (Lab Results, Vitals, Investigations)
+            if "observations" in record:
+                for item in record["observations"]:
+                    obs = item.get("o")
+                    r = item.get("r")
+                    if obs:
+                        obs_name = obs.get("name", "Lab Test")
+                        obs_val = obs.get("value", "")
+                        obs_unit = obs.get("unit", "")
+                        obs_date = str(obs.get("test_date") or (r.get("date") if r else "") or "")
+                        evidence.append(GraphEvidence(
+                            node_type="Observation",
+                            name=f"{obs_name}: {obs_val} {obs_unit}".strip(),
+                            relationship="HAD_OBSERVATION",
+                            details={
+                                "test_name": obs_name,
+                                "value": obs_val,
+                                "unit": obs_unit,
+                                "test_date": obs_date,
+                                "source": obs.get("source", "EHR")
+                            },
+                            valid_from=obs_date or None,
+                            valid_to=None,
+                            temporal_status="recorded",
+                            confidence=1.0,
+                            score=1.0
+                        ))
     except Exception as e:
         logger.error(f"Error querying graph evidence: {e}")
 
@@ -127,7 +176,6 @@ def retrieve_graph_evidence(patient_id: str, query: str, temporal_clause: Option
         return evidence
 
     if temporal_clause == "LATEST":
-        # Sort evidence by valid_from descending, return latest facts
         dated_evidence = [e for e in evidence if e.valid_from]
         if dated_evidence:
             dated_evidence.sort(key=lambda x: x.valid_from or "", reverse=True)
@@ -163,8 +211,22 @@ def retrieve_graph_evidence(patient_id: str, query: str, temporal_clause: Option
             if e.valid_from and e.valid_from.startswith(year)
         ]
 
+    elif temporal_clause.startswith("YEAR_MONTH:"):
+        ym = temporal_clause.split(":")[1]
+        return [
+            e for e in evidence
+            if e.valid_from and e.valid_from.startswith(ym)
+        ]
+
+    elif temporal_clause.startswith("ON_DATE:"):
+        target_date = temporal_clause.split(":")[1]
+        return [
+            e for e in evidence
+            if (e.valid_from and e.valid_from == target_date) or
+               (e.valid_from and e.valid_to and e.valid_from <= target_date <= e.valid_to)
+        ]
+
     elif temporal_clause == "PREVIOUS":
-        # Return non-latest or historical items
         dated_evidence = [e for e in evidence if e.valid_from]
         if dated_evidence:
             dated_evidence.sort(key=lambda x: x.valid_from or "", reverse=True)
@@ -175,36 +237,37 @@ def retrieve_graph_evidence(patient_id: str, query: str, temporal_clause: Option
     return evidence
 
 def retrieve_document_evidence(patient_id: str, query: str, top_k: int = 3) -> List[DocumentEvidence]:
-    """Retrieves document chunks from patient's FAISS namespace."""
-    query_emb = encode_text(query)
-    raw_chunks = search_patient_index(patient_id, query_emb, top_k=top_k)
+    """
+    Retrieves document chunks from patient's FAISS namespace.
+    For multi-part/complex queries, decomposes into sub-questions and aggregates results.
+    """
+    # Decompose compound queries if multiple distinct questions/clauses exist
+    sub_queries = [query]
+    parts = re.split(r"[?\n;]|\band\s+what\b|\balso\b", query, flags=re.IGNORECASE)
+    cleaned_parts = [p.strip() for p in parts if len(p.strip()) > 8]
+    if len(cleaned_parts) > 1:
+        sub_queries = cleaned_parts
 
-    doc_evidence = []
-    for c in raw_chunks:
-        doc_evidence.append(DocumentEvidence(
-            chunk_text=c.get("text", ""),
-            source_filename=c.get("source_filename", "unknown"),
-            chunk_index=c.get("chunk_index", 0),
-            score=float(c.get("score", 0.0))
-        ))
+    chunk_dict: Dict[Tuple[str, int], DocumentEvidence] = {}
 
-    return doc_evidence
+    for sq in sub_queries:
+        query_emb = encode_text(sq)
+        raw_chunks = search_patient_index(patient_id, query_emb, top_k=top_k)
+        for c in raw_chunks:
+            key = (c.get("source_filename", "unknown"), c.get("chunk_index", 0))
+            score = float(c.get("score", 0.0))
+            if key not in chunk_dict or score > chunk_dict[key].score:
+                chunk_dict[key] = DocumentEvidence(
+                    chunk_text=c.get("text", ""),
+                    source_filename=key[0],
+                    chunk_index=key[1],
+                    score=score
+                )
 
-import re
-
-MEDICATION_KEYWORDS = {"medication", "medications", "drug", "drugs", "prescribed", "prescription", "pharmacy", "medicine", "medicines", "pill", "pills", "dose", "dosage"}
-CONDITION_KEYWORDS = {"condition", "conditions", "diagnosis", "diagnoses", "disease", "diseases", "illness", "disorder", "syndrome"}
-TREATMENT_KEYWORDS = {"treatment", "treatments", "procedure", "procedures", "surgery", "operation", "therapy"}
-ADMISSION_KEYWORDS = {"admission", "admitted", "hospital", "stay", "discharge", "discharged", "readmission", "length of stay"}
-
-def _contains_kw(text: str, keywords: set) -> bool:
-    if not text:
-        return False
-    t_lower = text.lower()
-    for kw in keywords:
-        if re.search(r"\b" + re.escape(kw) + r"\b", t_lower):
-            return True
-    return False
+    # Sort descending by relevance score
+    all_chunks = sorted(chunk_dict.values(), key=lambda d: d.score, reverse=True)
+    limit = max(top_k, min(len(sub_queries) * 2, 6))
+    return all_chunks[:limit]
 
 def score_and_filter_domain_relevance(
     evidence: List[GraphEvidence],
@@ -214,6 +277,7 @@ def score_and_filter_domain_relevance(
     Scores graph evidence items based on query domain intent.
     If specific domain keywords are present in the query (e.g. medications),
     ranks/filters evidence so domain-relevant items are prioritized and unrelated ones are filtered out.
+    Supports complex multi-domain queries.
     Returns (scored_and_filtered_evidence, has_domain_filter).
     """
     if not evidence:
@@ -225,8 +289,10 @@ def score_and_filter_domain_relevance(
     is_cond_query = _contains_kw(q_lower, CONDITION_KEYWORDS)
     is_treat_query = _contains_kw(q_lower, TREATMENT_KEYWORDS)
     is_adm_query = _contains_kw(q_lower, ADMISSION_KEYWORDS)
+    is_lab_query = _contains_kw(q_lower, LAB_KEYWORDS)
+    is_proc_query = _contains_kw(q_lower, PROCEDURE_KEYWORDS)
 
-    has_specific_domain = is_med_query or is_cond_query or is_treat_query or is_adm_query
+    has_specific_domain = is_med_query or is_cond_query or is_treat_query or is_adm_query or is_lab_query or is_proc_query
 
     if not has_specific_domain:
         for item in evidence:
@@ -256,8 +322,8 @@ def score_and_filter_domain_relevance(
             elif _contains_kw(item.name, CONDITION_KEYWORDS) or _contains_kw(str(item.details), CONDITION_KEYWORDS):
                 is_match = True
 
-        # Check treatment query match
-        if is_treat_query:
+        # Check treatment/procedure query match
+        if is_treat_query or is_proc_query:
             if item.node_type == "Treatment":
                 is_match = True
             elif item.node_type == "Encounter" and item.details.get("treatment"):
@@ -272,6 +338,13 @@ def score_and_filter_domain_relevance(
             elif _contains_kw(item.name, ADMISSION_KEYWORDS) or _contains_kw(str(item.details), ADMISSION_KEYWORDS):
                 is_match = True
 
+        # Check lab/observation query match
+        if is_lab_query:
+            if item.node_type == "Observation":
+                is_match = True
+            elif _contains_kw(item.name, LAB_KEYWORDS) or _contains_kw(str(item.details), LAB_KEYWORDS):
+                is_match = True
+
         if is_match:
             item.score = 1.0
             domain_matched.append(item)
@@ -281,7 +354,6 @@ def score_and_filter_domain_relevance(
     if domain_matched:
         return domain_matched, True
     else:
-        # No domain-matched items found for the specific query domain
         return evidence, True
 
 def fuse_and_gate_evidence(

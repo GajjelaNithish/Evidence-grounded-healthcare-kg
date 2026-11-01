@@ -1,4 +1,6 @@
 import os
+import time
+import uuid
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
@@ -85,6 +87,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Observability Middleware: Request ID tracing and latency measurement
+@app.middleware("http")
+async def request_id_and_timing_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start_time) * 1000
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Response-Time"] = f"{duration_ms:.2f}ms"
+    if not request.url.path.endswith("/health"):
+        logger.info(f"[{request_id[:8]}] {request.method} {request.url.path} {response.status_code} ({duration_ms:.1f}ms)")
+    return response
+
 # Register Routers
 app.include_router(auth_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
@@ -93,7 +108,12 @@ app.include_router(kg_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(encounters_router, prefix="/api")
 
-# System Health Check endpoint
+# System Health Check endpoints
+@app.get("/health", tags=["System"])
+async def root_health_check():
+    """Root health check for load balancers and container orchestrators."""
+    return await health_check()
+
 @app.get("/api/health", tags=["System"])
 async def health_check():
     """Returns the operational status of all backing services."""

@@ -14,6 +14,8 @@ const NODE_COLORS = {
   AdmissionEvent: '#F59E0B',
   encounter: '#06B6D4',
   Encounter: '#06B6D4',
+  observation: '#EC4899',
+  Observation: '#EC4899',
   document: '#8B5CF6',
   DocumentChunk: '#8B5CF6',
 };
@@ -24,6 +26,7 @@ function normalizeType(type) {
   if (lower.includes('patient')) return 'patient';
   if (lower.includes('cond')) return 'condition';
   if (lower.includes('treat')) return 'treatment';
+  if (lower.includes('obs') || lower.includes('lab') || lower.includes('test')) return 'observation';
   if (lower.includes('admis')) return 'admission';
   if (lower.includes('encount') || lower.includes('visit')) return 'encounter';
   if (lower.includes('doc') || lower.includes('chunk')) return 'document';
@@ -42,6 +45,7 @@ export default function Graph({ patientId, graphData, summary, timeline }) {
   const [showTreatments, setShowTreatments] = useState(true);
   const [showAdmissions, setShowAdmissions] = useState(true);
   const [showEncounters, setShowEncounters] = useState(true);
+  const [showObservations, setShowObservations] = useState(true);
   const [showDocuments, setShowDocuments] = useState(true);
 
   // ResizeObserver for dynamic width
@@ -65,7 +69,7 @@ export default function Graph({ patientId, graphData, summary, timeline }) {
       fgRef.current.d3Force('collision', d3.forceCollide().radius(55));
       fgRef.current.d3Force('link', d3.forceLink().distance(160));
     }
-  }, [fgRef, showConditions, showTreatments, showAdmissions, showEncounters, showDocuments]);
+  }, [fgRef, showConditions, showTreatments, showAdmissions, showEncounters, showObservations, showDocuments]);
 
   // Transform graph data
   const transformedData = useMemo(() => {
@@ -174,6 +178,23 @@ export default function Graph({ patientId, graphData, summary, timeline }) {
             });
             links.push({ id: `${pId}->${condId}`, source: pId, target: condId, label: 'HAS_CONDITION', properties: { valid_from: evt.date } });
           }
+        } else if (evt.event_type === 'Lab / Investigation' && evt.title) {
+          const obsId = `Observation_${idx}`;
+          if (!nodesMap.has(obsId)) {
+            nodesMap.set(obsId, {
+              id: obsId,
+              label: evt.title,
+              type: 'observation',
+              properties: {
+                date: evt.date,
+                status: evt.status,
+                details: evt.details,
+                source: 'Diagnostic Lab Stream',
+              },
+              val: 8,
+            });
+            links.push({ id: `${pId}->${obsId}`, source: pId, target: obsId, label: 'HAD_OBSERVATION', properties: { valid_from: evt.date } });
+          }
         }
       });
     }
@@ -202,6 +223,10 @@ export default function Graph({ patientId, graphData, summary, timeline }) {
         if (showEncounters) activeNodeIds.add(node.id);
         return showEncounters;
       }
+      if (node.type === 'observation') {
+        if (showObservations) activeNodeIds.add(node.id);
+        return showObservations;
+      }
       if (node.type === 'document') {
         if (showDocuments) activeNodeIds.add(node.id);
         return showDocuments;
@@ -217,7 +242,7 @@ export default function Graph({ patientId, graphData, summary, timeline }) {
     });
 
     return { nodes: filteredNodes, links: filteredLinks };
-  }, [graphData, summary, timeline, patientId, showConditions, showTreatments, showAdmissions, showEncounters, showDocuments]);
+  }, [graphData, summary, timeline, patientId, showConditions, showTreatments, showAdmissions, showEncounters, showObservations, showDocuments]);
 
   // Node Canvas rendering with selection highlight & clean text
   const renderNode = useCallback((node, ctx, globalScale) => {
@@ -324,6 +349,14 @@ export default function Graph({ patientId, graphData, summary, timeline }) {
             onClick={() => setShowEncounters(!showEncounters)}
           >
             <span className="filter-dot dot-encounter" /> Encounters
+          </button>
+
+          <button
+            type="button"
+            className={`graph-filter-toggle ${showObservations ? 'active' : ''}`}
+            onClick={() => setShowObservations(!showObservations)}
+          >
+            <span className="filter-dot dot-observation" style={{ backgroundColor: '#EC4899' }} /> Labs / Obs
           </button>
 
           <button
@@ -467,6 +500,24 @@ export default function Graph({ patientId, graphData, summary, timeline }) {
                   <div className="summary-def-row">
                     <dt className="summary-def-label">Clinical Details</dt>
                     <dd className="summary-def-value">{selectedNode.properties.details}</dd>
+                  </div>
+                )}
+                {selectedNode.properties?.dosage && (
+                  <div className="summary-def-row">
+                    <dt className="summary-def-label">Dosage</dt>
+                    <dd className="summary-def-value font-mono">{selectedNode.properties.dosage}</dd>
+                  </div>
+                )}
+                {selectedNode.properties?.frequency && (
+                  <div className="summary-def-row">
+                    <dt className="summary-def-label">Frequency</dt>
+                    <dd className="summary-def-value font-mono">{selectedNode.properties.frequency}</dd>
+                  </div>
+                )}
+                {selectedNode.properties?.value && (
+                  <div className="summary-def-row">
+                    <dt className="summary-def-label">Lab Value / Result</dt>
+                    <dd className="summary-def-value font-mono">{selectedNode.properties.value} {selectedNode.properties.unit || ''}</dd>
                   </div>
                 )}
               </dl>

@@ -95,6 +95,8 @@ async def get_patient_subgraph(
     MATCH (p:Patient {patient_id: $patient_id})
     OPTIONAL MATCH (p)-[r_cond:HAS_CONDITION]->(c:Condition)
     OPTIONAL MATCH (p)-[r_treat:RECEIVED_TREATMENT]->(t:Treatment)
+    OPTIONAL MATCH (p)-[r_obs:HAD_OBSERVATION]->(o:Observation)
+    OPTIONAL MATCH (p)-[r_enc:HAD_ENCOUNTER]->(e:Encounter)
     OPTIONAL MATCH (p)-[r_adm:HAD_ADMISSION]->(ae:AdmissionEvent)
     OPTIONAL MATCH (ae)-[r_diag:DIAGNOSED_WITH]->(c_adm:Condition)
     OPTIONAL MATCH (ae)-[r_tx:TREATED_WITH]->(t_adm:Treatment)
@@ -104,6 +106,8 @@ async def get_patient_subgraph(
     RETURN p,
            collect(DISTINCT {r: r_cond, node: c}) AS conds,
            collect(DISTINCT {r: r_treat, node: t}) AS treats,
+           collect(DISTINCT {r: r_obs, node: o}) AS observations,
+           collect(DISTINCT {r: r_enc, node: e}) AS encounters,
            collect(DISTINCT {r: r_adm, node: ae}) AS adms,
            collect(DISTINCT {ae: ae, r: r_diag, c: c_adm}) AS ae_conds,
            collect(DISTINCT {ae: ae, r: r_tx, t: t_adm}) AS ae_treats,
@@ -141,6 +145,28 @@ async def get_patient_subgraph(
                 _add_node(t_id, t.get("name", "Treatment"), "Treatment", dict(t))
                 if r:
                     _add_edge(f"{p_id}_RECEIVED_{t_id}", p_id, t_id, "RECEIVED_TREATMENT", dict(r))
+
+        # Observations / Labs
+        for item in record.get("observations", []):
+            o = item.get("node")
+            r = item.get("r")
+            if o:
+                obs_key = o.get("obs_id") or o.get("name")
+                obs_id = f"Observation_{obs_key}"
+                label = f"{o.get('name')}: {o.get('value')} {o.get('unit', '')}".strip()
+                _add_node(obs_id, label, "Observation", dict(o))
+                if r:
+                    _add_edge(f"{p_id}_OBS_{obs_id}", p_id, obs_id, "HAD_OBSERVATION", dict(r))
+
+        # Encounters
+        for item in record.get("encounters", []):
+            e = item.get("node")
+            r = item.get("r")
+            if e:
+                enc_id = f"Encounter_{e.get('encounter_id', e.get('visit_date'))}"
+                _add_node(enc_id, f"Visit ({e.get('visit_date')})", "Encounter", dict(e))
+                if r:
+                    _add_edge(f"{p_id}_ENC_{enc_id}", p_id, enc_id, "HAD_ENCOUNTER", dict(r))
 
         # Admissions
         for item in record["adms"]:
@@ -208,16 +234,18 @@ async def get_patient_timeline(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     driver = get_neo4j_driver()
-    timeline = []
+    raw_timeline = []
 
     cypher = """
     MATCH (p:Patient {patient_id: $patient_id})
     OPTIONAL MATCH (p)-[r1:HAS_CONDITION]->(c:Condition)
     OPTIONAL MATCH (p)-[r2:RECEIVED_TREATMENT]->(t:Treatment)
+    OPTIONAL MATCH (p)-[r_obs:HAD_OBSERVATION]->(o:Observation)
     OPTIONAL MATCH (p)-[:HAD_ADMISSION]->(ae:AdmissionEvent)
     OPTIONAL MATCH (p)-[:HAD_ENCOUNTER]->(e:Encounter)
     RETURN collect(DISTINCT {r: r1, c: c}) AS conds,
            collect(DISTINCT {r: r2, t: t}) AS treats,
+           collect(DISTINCT {r: r_obs, o: o}) AS observations,
            collect(DISTINCT ae) AS adms,
            collect(DISTINCT e) AS encounters
     """
@@ -230,32 +258,63 @@ async def get_patient_timeline(
             for item in record["conds"]:
                 c = item.get("c")
                 r = item.get("r")
-                if c and r and r.get("valid_from"):
-                    timeline.append({
+                if c:
+                    event_date = r.get("valid_from") if r else None
+                    raw_timeline.append({
                         "event_type": "Condition Diagnosis",
-                        "title": c.get("name"),
-                        "date": str(r.get("valid_from")),
-                        "end_date": str(r.get("valid_to")) if r.get("valid_to") else None,
-                        "status": "Active" if not r.get("valid_to") else "Resolved",
-                        "details": f"Diagnosed with {c.get('name')}"
+                        "title": c.get("name") or "Condition",
+                        "date": str(event_date) if event_date else None,
+                        "end_date": str(r.get("valid_to")) if r and r.get("valid_to") else None,
+                        "status": "Active" if not (r and r.get("valid_to")) else "Resolved",
+                        "details": f"Diagnosed with {c.get('name')}" + (f" (Source: {r.get('source')})" if r and r.get('source') else "")
                     })
 
             for item in record["treats"]:
                 t = item.get("t")
                 r = item.get("r")
-                if t and r and r.get("valid_from"):
-                    timeline.append({
+                if t:
+                    event_date = r.get("valid_from") if r else None
+                    details_parts = [f"Administered {t.get('name')}"]
+                    dosage = (r and r.get("dosage")) or t.get("dosage")
+                    if dosage:
+                        details_parts.append(f"Dosage: {dosage}")
+                    freq = (r and r.get("frequency")) or t.get("frequency")
+                    if freq:
+                        details_parts.append(f"Frequency: {freq}")
+                    if t.get("treatment_type"):
+                        details_parts.append(f"Type: {t.get('treatment_type')}")
+                    if r and r.get("source"):
+                        details_parts.append(f"Source: {r.get('source')}")
+
+                    raw_timeline.append({
                         "event_type": "Treatment Course",
-                        "title": t.get("name"),
-                        "date": str(r.get("valid_from")),
-                        "end_date": str(r.get("valid_to")) if r.get("valid_to") else None,
-                        "status": "Ongoing" if not r.get("valid_to") else "Completed",
-                        "details": f"Administered {t.get('name')} ({t.get('treatment_type')})"
+                        "title": t.get("name") or "Treatment",
+                        "date": str(event_date) if event_date else None,
+                        "end_date": str(r.get("valid_to")) if r and r.get("valid_to") else None,
+                        "status": "Ongoing" if not (r and r.get("valid_to")) else "Completed",
+                        "details": " | ".join(details_parts)
+                    })
+
+            for item in record.get("observations", []):
+                o = item.get("o")
+                r = item.get("r")
+                if o:
+                    obs_date = o.get("test_date") or (r.get("date") if r else None)
+                    details = f"Result: {o.get('value', '')} {o.get('unit', '')}".strip()
+                    if o.get("source"):
+                        details += f" | Source: {o.get('source')}"
+                    raw_timeline.append({
+                        "event_type": "Lab / Investigation",
+                        "title": o.get("name") or "Observation",
+                        "date": str(obs_date) if obs_date else None,
+                        "end_date": None,
+                        "status": "Completed",
+                        "details": details
                     })
 
             for ae in record["adms"]:
                 if ae and ae.get("admission_date"):
-                    timeline.append({
+                    raw_timeline.append({
                         "event_type": "Hospital Admission",
                         "title": f"Admission ({ae.get('outcome', 'Stable')})",
                         "date": str(ae.get("admission_date")),
@@ -272,7 +331,6 @@ async def get_patient_timeline(
             seen_enc_dates = set()
             for e in record["encounters"]:
                 if e and e.get("visit_date"):
-                    # Deduplicate by encounter_id if present; fall back to visit_date
                     dedup_key = e.get("encounter_id") or e.get("visit_date")
                     if dedup_key in seen_enc_dates:
                         continue
@@ -288,18 +346,27 @@ async def get_patient_timeline(
                     if e.get("medication"):
                         parts.append(f"Medication: {e.get('medication')}")
 
-                    timeline.append({
+                    raw_timeline.append({
                         "event_type": "Clinical Encounter",
-                        "title": e.get("condition") or e.get("diagnosis") or f"Clinical Visit",
+                        "title": e.get("condition") or e.get("diagnosis") or "Clinical Visit",
                         "date": str(e.get("visit_date")),
                         "end_date": None,
                         "status": "Recorded",
                         "details": " | ".join(parts) if parts else f"Encounter {e.get('encounter_id', '')}"
                     })
 
-    # Sort chronological
-    timeline.sort(key=lambda x: x["date"] or "", reverse=True)
-    return timeline
+    # Deduplicate events with identical type, title, and date
+    seen_events = set()
+    deduped_timeline = []
+    for evt in raw_timeline:
+        key = (evt.get("event_type"), evt.get("title"), evt.get("date"), evt.get("details"))
+        if key not in seen_events:
+            seen_events.add(key)
+            deduped_timeline.append(evt)
+
+    # Sort chronological descending (events without date placed at the end)
+    deduped_timeline.sort(key=lambda x: x["date"] or "", reverse=True)
+    return deduped_timeline
 
 @router.get("/analytics/{patient_id}")
 async def get_patient_analytics(
@@ -319,11 +386,13 @@ async def get_patient_analytics(
     OPTIONAL MATCH (p)-[:HAS_CONDITION]->(c:Condition)
     OPTIONAL MATCH (p)-[:RECEIVED_TREATMENT]->(t:Treatment)
     OPTIONAL MATCH (p)-[:HAD_ADMISSION]->(ae:AdmissionEvent)
+    OPTIONAL MATCH (p)-[:HAD_OBSERVATION]->(o:Observation)
     OPTIONAL MATCH (p)-[:HAS_DOCUMENT_CHUNK]->(d:DocumentChunk)
     RETURN p,
            count(DISTINCT c) AS condition_count,
            count(DISTINCT t) AS treatment_count,
            count(DISTINCT ae) AS admission_count,
+           count(DISTINCT o) AS observation_count,
            sum(ae.total_cost_inr) AS total_cost,
            sum(ae.length_of_stay) AS total_los,
            count(DISTINCT d) AS chunk_count
@@ -345,6 +414,7 @@ async def get_patient_analytics(
             "condition_count": record["condition_count"],
             "treatment_count": record["treatment_count"],
             "admission_count": record["admission_count"],
+            "observation_count": record["observation_count"],
             "total_treatment_cost_inr": record["total_cost"] or 0,
             "total_length_of_stay_days": record["total_los"] or 0,
             "indexed_document_chunks": record["chunk_count"]

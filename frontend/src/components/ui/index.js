@@ -8,3 +8,4 @@ export { default as DataTable } from './DataTable';
 export { default as Skeleton } from './Skeleton';
 export { default as EmptyState } from './EmptyState';
 export { default as ErrorState } from './ErrorState';
+export { default as FormattedAnswer } from './FormattedAnswer';

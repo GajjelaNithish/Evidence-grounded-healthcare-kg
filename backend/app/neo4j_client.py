@@ -14,7 +14,9 @@ def get_neo4j_driver() -> Driver:
     if _driver is None:
         _driver = GraphDatabase.driver(
             settings.NEO4J_URL,
-            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+            max_connection_pool_size=50,
+            connection_acquisition_timeout=30.0
         )
     return _driver
 
@@ -24,7 +26,9 @@ def get_async_neo4j_driver() -> AsyncDriver:
     if _async_driver is None:
         _async_driver = AsyncGraphDatabase.driver(
             settings.NEO4J_URL,
-            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+            max_connection_pool_size=50,
+            connection_acquisition_timeout=30.0
         )
     return _async_driver
 
@@ -74,6 +78,10 @@ def init_neo4j_constraints():
         "CREATE CONSTRAINT IF NOT EXISTS FOR (c:Condition) REQUIRE c.normalized_name IS UNIQUE",
         "CREATE CONSTRAINT IF NOT EXISTS FOR (t:Treatment) REQUIRE t.normalized_name IS UNIQUE",
         "CREATE INDEX IF NOT EXISTS FOR (a:AdmissionEvent) ON (a.event_id)",
+        "CREATE INDEX IF NOT EXISTS FOR (a:AdmissionEvent) ON (a.admission_date)",
+        "CREATE INDEX IF NOT EXISTS FOR (e:Encounter) ON (e.encounter_id)",
+        "CREATE INDEX IF NOT EXISTS FOR (e:Encounter) ON (e.visit_date)",
+        "CREATE INDEX IF NOT EXISTS FOR (o:Observation) ON (o.obs_id)",
         "CREATE INDEX IF NOT EXISTS FOR (d:DocumentChunk) ON (d.chunk_id)"
     ]
 

@@ -19,7 +19,7 @@ def extract_text_from_file(file_path: str) -> Tuple[str, str]:
     if ext in (".txt", ".md", ".csv"):
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             text = f.read()
-        return text.strip(), "plain_text"
+        return _clean_text(text), "plain_text"
 
     elif ext == ".pdf":
         return _extract_from_pdf(file_path)
@@ -30,6 +30,16 @@ def extract_text_from_file(file_path: str) -> Tuple[str, str]:
     else:
         raise ValueError(f"Unsupported file format: {ext}")
 
+def _clean_text(text: str) -> str:
+    """Cleans encoding artifacts and normalizes whitespace."""
+    if not text:
+        return ""
+    # Normalize unicode replacement character to hyphen/dash
+    text = text.replace("\ufffd", "-").replace("\x00", "")
+    # Normalize carriage returns
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return text.strip()
+
 def _extract_from_pdf(pdf_path: str) -> Tuple[str, str]:
     doc = pymupdf.open(pdf_path)
     full_text = []
@@ -38,10 +48,12 @@ def _extract_from_pdf(pdf_path: str) -> Tuple[str, str]:
 
     for page_num in range(total_pages):
         page = doc[page_num]
-        text = page.get_text().strip()
-        if len(text) < 30:
+        # sort=True ensures reading order top-to-bottom, left-to-right
+        text = page.get_text("text", sort=True).strip()
+        cleaned_page = _clean_text(text)
+        if len(cleaned_page) < 30:
             scanned_pages += 1
-        full_text.append(text)
+        full_text.append(cleaned_page)
 
     # If more than half the pages have almost no text, attempt OCR
     if total_pages > 0 and (scanned_pages / total_pages) > 0.5:
@@ -49,7 +61,7 @@ def _extract_from_pdf(pdf_path: str) -> Tuple[str, str]:
         ocr_text = _attempt_ocr_pdf(doc)
         if ocr_text:
             doc.close()
-            return ocr_text, "pdf_ocr"
+            return _clean_text(ocr_text), "pdf_ocr"
 
     doc.close()
     return "\n\n".join(full_text).strip(), "pdf_digital"
@@ -78,7 +90,7 @@ def _extract_from_image(img_path: str) -> Tuple[str, str]:
         from PIL import Image
         img = Image.open(img_path)
         text = pytesseract.image_to_string(img)
-        return text.strip(), "image_ocr"
+        return _clean_text(text), "image_ocr"
     except Exception as e:
         logger.warning(f"Image OCR failed: {e}")
         return f"[Image document uploaded: {os.path.basename(img_path)} - OCR unavailable]", "image_fallback"
